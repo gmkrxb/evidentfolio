@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://github.com/gmkrxb/evidentfolio/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gmkrxb/evidentfolio/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://github.com/gmkrxb/evidentfolio/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/gmkrxb/evidentfolio?style=flat-square" /></a>
-  <a href="https://hub.docker.com/r/gmkrxb/evidentfolio"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/gmkrxb/evidentfolio?style=flat-square" /></a>
+  <a href="https://github.com/gmkrxb/evidentfolio/pkgs/container/evidentfolio"><img alt="容器镜像" src="https://img.shields.io/badge/container-GHCR-2496ED?style=flat-square&logo=docker&logoColor=white" /></a>
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/gmkrxb/evidentfolio?style=flat-square" /></a>
 </p>
 
@@ -71,7 +71,7 @@ docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 \
   -e EVIDENTFOLIO_SECURE_COOKIES=false \
   -v "$PWD/evidentfolio/data:/app/data" \
   -v "$PWD/evidentfolio/uploads:/app/uploads" \
-  gmkrxb/evidentfolio:latest
+  ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
 打开 `http://localhost:8080`。空白部署会自动进入 `/admin/login` 初始化页，创建第一个管理员和网站基础身份；管理员存在后，初始化接口立即关闭。
@@ -90,7 +90,7 @@ docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 \
 6. 全部通过后才启动单 Worker Uvicorn 与 Nginx。
 
 ```bash
-docker pull gmkrxb/evidentfolio:latest
+docker pull ghcr.io/gmkrxb/evidentfolio:latest
 docker rm -f evidentfolio
 # 使用原来的目录挂载再次执行 docker run
 docker logs -f --tail 160 evidentfolio

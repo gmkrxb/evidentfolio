@@ -25,13 +25,13 @@ openssl rand -hex 32
 Run on HTTP for local evaluation:
 
 ```bash
-docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 -e EVIDENTFOLIO_SECRET_KEY='replace-with-generated-secret' -e EVIDENTFOLIO_TRUSTED_HOSTS='localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=false -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads gmkrxb/evidentfolio:latest
+docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 -e EVIDENTFOLIO_SECRET_KEY='replace-with-generated-secret' -e EVIDENTFOLIO_TRUSTED_HOSTS='localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=false -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
 For production HTTPS, set the real host and secure cookies:
 
 ```bash
-docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='replace-with-generated-secret' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads gmkrxb/evidentfolio:latest
+docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='replace-with-generated-secret' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
 Proxy the domain to `127.0.0.1:10010`, preserving `Host`, protocol, and client IP headers. Only list the real proxy network in `EVIDENTFOLIO_TRUSTED_PROXY_IPS`.
@@ -39,9 +39,9 @@ Proxy the domain to `127.0.0.1:10010`, preserving `Host`, protocol, and client I
 ### Updating without losing data
 
 ```bash
-docker pull gmkrxb/evidentfolio:latest
+docker pull ghcr.io/gmkrxb/evidentfolio:latest
 docker rm -f evidentfolio
-docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='the-same-existing-secret' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads gmkrxb/evidentfolio:latest
+docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='the-same-existing-secret' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads ghcr.io/gmkrxb/evidentfolio:latest
 docker logs -f --tail 160 evidentfolio
 ```
 

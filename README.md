@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://github.com/gmkrxb/evidentfolio/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gmkrxb/evidentfolio/actions/workflows/ci.yml/badge.svg" /></a>
   <a href="https://github.com/gmkrxb/evidentfolio/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/gmkrxb/evidentfolio?style=flat-square" /></a>
-  <a href="https://hub.docker.com/r/gmkrxb/evidentfolio"><img alt="Docker pulls" src="https://img.shields.io/docker/pulls/gmkrxb/evidentfolio?style=flat-square" /></a>
+  <a href="https://github.com/gmkrxb/evidentfolio/pkgs/container/evidentfolio"><img alt="Container image" src="https://img.shields.io/badge/container-GHCR-2496ED?style=flat-square&logo=docker&logoColor=white" /></a>
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/gmkrxb/evidentfolio?style=flat-square" /></a>
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
   <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white" />
@@ -73,7 +73,7 @@ docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 \
   -e EVIDENTFOLIO_SECURE_COOKIES=false \
   -v "$PWD/evidentfolio/data:/app/data" \
   -v "$PWD/evidentfolio/uploads:/app/uploads" \
-  gmkrxb/evidentfolio:latest
+  ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
 Open `http://localhost:8080`. A blank installation redirects to `/admin/login`, where the one-time setup creates the first administrator and basic site identity. The setup endpoint closes as soon as an administrator exists.
@@ -92,7 +92,7 @@ Keep the same `data/` and `uploads/` mounts, pull the new image, and recreate th
 6. Start the single Uvicorn worker and Nginx only if all checks pass.
 
 ```bash
-docker pull gmkrxb/evidentfolio:latest
+docker pull ghcr.io/gmkrxb/evidentfolio:latest
 docker rm -f evidentfolio
 # Run the same docker run command again with the existing mounts.
 docker logs -f --tail 160 evidentfolio
@@ -126,7 +126,7 @@ The Vite development proxy connects `/api` to `127.0.0.1:8000`. No API domain is
 
 | Method | Best for | Persistence |
 | --- | --- | --- |
-| `gmkrxb/evidentfolio:latest` | Simplest self-hosted deployment | Bind-mount `/app/data` and `/app/uploads` |
+| `ghcr.io/gmkrxb/evidentfolio:latest` | Simplest self-hosted deployment | Bind-mount `/app/data` and `/app/uploads` |
 | Build `Dockerfile.unified` | Auditable one-image deployment | Same two mounts |
 | External frontend/backend/runtime packages | Independent updates | External frontend, backend, data, uploads, and Python config |
 | Render Blueprint | Managed full-stack deployment | Persistent Render disk required |

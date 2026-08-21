@@ -25,13 +25,13 @@ openssl rand -hex 32
 本机 HTTP 体验：
 
 ```bash
-docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 -e EVIDENTFOLIO_SECRET_KEY='替换为生成的密钥' -e EVIDENTFOLIO_TRUSTED_HOSTS='localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=false -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads gmkrxb/evidentfolio:latest
+docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 -e EVIDENTFOLIO_SECRET_KEY='替换为生成的密钥' -e EVIDENTFOLIO_TRUSTED_HOSTS='localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=false -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
 生产 HTTPS 部署：
 
 ```bash
-docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='替换为生成的密钥' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads gmkrxb/evidentfolio:latest
+docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='替换为生成的密钥' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
 域名反代到 `127.0.0.1:10010`，并转发 Host、协议和真实 IP。`EVIDENTFOLIO_TRUSTED_PROXY_IPS` 只填写真实代理网络。
@@ -39,9 +39,9 @@ docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80
 ### 二次更新且保留全部数据
 
 ```bash
-docker pull gmkrxb/evidentfolio:latest
+docker pull ghcr.io/gmkrxb/evidentfolio:latest
 docker rm -f evidentfolio
-docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='继续使用原来的密钥' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads gmkrxb/evidentfolio:latest
+docker run -d --name evidentfolio --restart unless-stopped -p 127.0.0.1:10010:80 -e EVIDENTFOLIO_SECRET_KEY='继续使用原来的密钥' -e EVIDENTFOLIO_TRUSTED_HOSTS='portfolio.example.com,localhost,127.0.0.1' -e EVIDENTFOLIO_SECURE_COOKIES=true -v /srv/evidentfolio/data:/app/data -v /srv/evidentfolio/uploads:/app/uploads ghcr.io/gmkrxb/evidentfolio:latest
 docker logs -f --tail 160 evidentfolio
 ```
 

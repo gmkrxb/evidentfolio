@@ -21,7 +21,10 @@ jobs:
         run: corepack enable && yarn dlx cnpm@latest install
       - name: Type-check, test, and build
         working-directory: frontend
-        run: cnpm run type-check && cnpm run test && cnpm run build
+        run: |
+          ./node_modules/.bin/vue-tsc --noEmit
+          ./node_modules/.bin/vitest run
+          ./node_modules/.bin/vite build --configLoader runner
 
   backend:
     runs-on: ubuntu-latest
