@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/gmkrxb/evidentfolio/security/advisories/new
+    about: Privately report a vulnerability
+  - name: Questions and ideas
+    url: https://github.com/gmkrxb/evidentfolio/discussions
+    about: Ask for help or discuss an early idea

@@ -1,0 +1,78 @@
+:root {
+  --color-bg: #f4f2ec;
+  --color-surface: #fbfaf7;
+  --color-surface-strong: #ffffff;
+  --color-ink: #17201d;
+  --color-ink-soft: #4e5a55;
+  --color-muted: #78817d;
+  --color-line: #d8d8d0;
+  --color-line-strong: #b8bdb7;
+  --color-brand: #1e4339;
+  --color-brand-2: #315f50;
+  --color-accent: #c9a870;
+  --color-danger: #a63f3a;
+  --color-success: #2f684d;
+  --surface: var(--color-surface);
+  --surface-soft: var(--color-bg);
+  --ink: var(--color-ink);
+  --muted: var(--color-muted);
+  --line: var(--color-line);
+  --accent: var(--color-brand);
+  --font-sans: Inter, "SF Pro Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Iowan Old Style", "Songti SC", "STSong", Georgia, serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --container: 1240px;
+  --radius-small: 4px;
+  --radius-medium: 10px;
+  --shadow-soft: 0 18px 52px rgb(18 35 30 / 8%);
+  --duration-fast: 140ms;
+  --duration-normal: 280ms;
+  --duration-slow: 560ms;
+  --ease-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --spring-soft: linear(
+    0,
+    0.009,
+    0.035 2.1%,
+    0.141,
+    0.281 6.7%,
+    0.723 12.9%,
+    0.938 16.7%,
+    1.017,
+    1.077,
+    1.121,
+    1.149 24.3%,
+    1.159,
+    1.163,
+    1.161,
+    1.154 29.9%,
+    1.129 32.8%,
+    1.051 39.6%,
+    1.017 43.1%,
+    0.991,
+    0.977 51%,
+    0.974 53.8%,
+    0.975 57.1%,
+    0.997 69.8%,
+    1.003 76.9%,
+    1
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

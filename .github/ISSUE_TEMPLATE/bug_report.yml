@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible EvidentFolio problem
+title: "[Bug]: "
+labels: [bug, needs-triage]
+body:
+  - type: checkboxes
+    attributes:
+      label: Privacy and security
+      options:
+        - label: I removed résumés, API keys, visitor data, private URLs, and other personal information.
+          required: true
+        - label: This is not a security vulnerability; security reports go through the Security tab.
+          required: true
+  - type: input
+    attributes:
+      label: Version or image digest
+      placeholder: v1.0.0 or sha256:...
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Deployment
+      options: [Docker Hub image, Self-built unified image, External runtime, Direct source, Render, Vercel frontend]
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Sanitized logs
+      render: shell

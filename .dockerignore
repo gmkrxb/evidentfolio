@@ -1,0 +1,15 @@
+.git
+.idea
+.vscode
+frontend/node_modules
+frontend/dist
+backend/.pytest_cache
+backend/tests/.runtime
+**/__pycache__
+**/*.pyc
+data
+uploads
+tmp
+release
+output
+vibe-coding-batches-deidentified.md

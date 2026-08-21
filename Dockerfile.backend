@@ -1,0 +1,26 @@
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PORTFOLIO_CONFIG=/app/config/config.py
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg curl poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app/backend
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY backend/ .
+RUN chmod +x /app/backend/entrypoint.sh \
+    && addgroup --system portfolio \
+    && adduser --system --ingroup portfolio --home /app portfolio \
+    && mkdir -p /app/data /app/uploads /app/config \
+    && chown -R portfolio:portfolio /app
+
+USER portfolio
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:8000/api/health || exit 1
+ENTRYPOINT ["/app/backend/entrypoint.sh"]

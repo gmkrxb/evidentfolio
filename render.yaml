@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: evidentfolio
+    runtime: docker
+    dockerfilePath: ./Dockerfile.unified
+    healthCheckPath: /api/health
+    envVars:
+      - key: EVIDENTFOLIO_SECRET_KEY
+        generateValue: true
+      - key: EVIDENTFOLIO_STORAGE_ROOT
+        value: /app/storage
+      - key: EVIDENTFOLIO_TRUSTED_HOSTS
+        value: localhost,127.0.0.1,*.onrender.com
+      - key: EVIDENTFOLIO_SECURE_COOKIES
+        value: "true"
+    disk:
+      name: evidentfolio-data
+      mountPath: /app/storage
+      sizeGB: 1
