@@ -1,187 +1,173 @@
 # EvidentFolio
 
 <p align="center">
-  <strong>An evidence-first portfolio and case-study CMS.</strong><br />
-  Present the problem, your decisions, your contribution, and the proof—not just another grid of cards.
+  <strong>以证据为核心的个人作品集与案例研究 CMS。</strong><br />
+  展示问题、决策、个人贡献和可验证成果，而不只是另一组项目卡片。
 </p>
 
 <p align="center">
-  <a href="README.zh-CN.md">简体中文</a> ·
-  Live demo ·
-  <a href="docs/DEPLOYMENT.md">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="README.en.md">English</a> ·
+  在线演示 ·
+  <a href="docs/DEPLOYMENT.md">部署指南</a> ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/gmkrxb/evidentfolio/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/gmkrxb/evidentfolio/actions/workflows/ci.yml/badge.svg" /></a>
-  <a href="https://github.com/gmkrxb/evidentfolio/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/gmkrxb/evidentfolio?style=flat-square" /></a>
-  <a href="https://github.com/gmkrxb/evidentfolio/pkgs/container/evidentfolio"><img alt="Container image" src="https://img.shields.io/badge/container-GHCR-2496ED?style=flat-square&logo=docker&logoColor=white" /></a>
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/gmkrxb/evidentfolio?style=flat-square" /></a>
-  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white" />
-  <img alt="Vue 3" src="https://img.shields.io/badge/Vue-3-42b883?style=flat-square&logo=vuedotjs&logoColor=white" />
+  <a href="https://github.com/gmkrxb/evidentfolio/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/gmkrxb/evidentfolio?style=flat-square" /></a>
+  <a href="https://github.com/gmkrxb/evidentfolio/pkgs/container/evidentfolio"><img alt="容器镜像" src="https://img.shields.io/badge/container-GHCR-2496ED?style=flat-square&logo=docker&logoColor=white" /></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/gmkrxb/evidentfolio?style=flat-square" /></a>
+  <img alt="版本 1.0.0" src="https://img.shields.io/badge/version-1.0.0-informational?style=flat-square" />
 </p>
 
-![EvidentFolio home page](docs/images/home-desktop.png)
+![EvidentFolio 首页](docs/images/home-desktop.png)
 
-## Why EvidentFolio?
+## 为什么做 EvidentFolio？
 
-Hiring managers rarely need another list of technologies. They need a fast answer to four questions: what problem did you solve, what exactly did you own, how did you make decisions, and what evidence supports the result?
+招聘负责人真正关心的通常不是“你会多少技术名词”，而是：你解决了什么问题、你具体负责什么、你为什么这样设计，以及结果是否有证据支撑。
 
-EvidentFolio is a self-hosted portfolio system built around that reading flow. It combines a polished public site, a real content and media admin, explainable attention analytics, multilingual content, and an optional OpenAI-compatible writing assistant. Your database and uploads remain under your control.
+EvidentFolio 围绕这条阅读路径构建，将高质量公开展示、真实可用的内容与资源后台、可解释的访问关注分析、双语内容和可选 AI 助手组合成一个完全自托管的系统。数据库、简历、证书和上传资源始终由你控制。
 
-## Highlights
+## 核心能力
 
-- Case-study projects with configurable sections, heading levels, mixed media, reusable albums, credentials, links, outcomes, and drag-to-reorder outlines.
-- Asset library with folders, global search, SHA-256 duplicate detection, safe previews, dependency checks, stable UUID URLs, thumbnails, video metadata, and Range requests.
-- Multiple résumé versions with progressive PDF.js rendering, page progress, zoom, fullscreen, download analytics, CMaps, and no browser PDF toolbar dependency.
-- Credentials and honors linked bidirectionally to projects, with image/PDF previews and lightbox viewing.
-- Anonymous attention analytics: visits, sessions, paths, dwell time, devices, referrers, UTM data, downloads, media progress, and an explainable high-attention score.
-- Chinese/English routes and database-backed content translations; fixed UI copy lives in extendable language packages.
-- Optional OpenAI-compatible AI configuration for model discovery, streaming translation, and structured résumé-to-draft import.
-- HttpOnly sessions, CSRF protection, Argon2 passwords, login throttling, audit logs, trusted-proxy IP handling, and safe upload validation.
-- SQLite WAL, Alembic migrations, startup integrity checks, pre-migration backups, Docker health checks, Nginx caching, SPA fallback, and PDF worker MIME handling.
-- Blank, privacy-safe first launch. EvidentFolio never inserts the maintainer's résumé, projects, certificates, or sample identity.
+- 案例研究式项目详情：自定义区块、标题层级、图文混排、相册、轮播、附件、证书、链接、成果和统一目录拖拽排序。
+- 资源库：多级文件夹、全局搜索、SHA-256 去重、安全预览、删除依赖预检、稳定 UUID 地址、缩略图、视频信息与 Range 请求。
+- 多版本简历：PDF.js 逐页渲染、加载进度、缩放、全屏、页码跳转、下载统计及完整中文字体资源。
+- 证书与荣誉：图片/PDF 原位展示、灯箱放大，并与项目双向关联。
+- 匿名关注分析：访问路径、停留时长、设备、来源、UTM、下载、媒体进度及规则可解释的高关注评分。
+- 中英文路由与数据库翻译字段；固定界面文案集中在可扩展语言包中。
+- OpenAI 兼容 AI：模型列表拉取、流式双向翻译、简历结构化解析并确认导入草稿。
+- HttpOnly Cookie、CSRF、Argon2、登录限流、审计日志、可信代理和安全文件校验。
+- SQLite WAL、Alembic 自动迁移、启动完整性检查、迁移前备份、Docker 健康检查、Nginx 缓存和 SPA fallback。
+- 隐私安全的空白初次部署：不会写入维护者的简历、项目、证书或个人身份。
 
-## Screens
+## 页面预览
 
-| Public case study | Content management |
+| 公开案例研究 | 项目内容管理 |
 | --- | --- |
-| ![Project case study](docs/images/project-detail.png) | ![Admin project editor](docs/images/admin-editor.png) |
+| ![项目案例](docs/images/project-detail.png) | ![项目编辑器](docs/images/admin-editor.png) |
 
-The public demo contains the maintainer's own portfolio data; the open-source installation starts empty: **demo**.
+开源版本首次启动为空白系统；下列网站仅作为维护者自己的成品演示：**demo**。
 
-## Tech stack
+## 技术栈
 
-| Layer | Technology |
+| 层级 | 技术 |
 | --- | --- |
-| Public site and admin | Vue 3, TypeScript, Vite, Vue Router, Pinia, CSS tokens, Lucide / Element Plus icons |
-| API | Python 3.12, FastAPI, Pydantic, SQLAlchemy 2, Uvicorn |
-| Data | SQLite WAL, Alembic, UUID public identifiers |
-| Media | Pillow, PyMuPDF, PDF.js, ffmpeg/ffprobe, Nginx Range responses |
-| Security | Argon2, HttpOnly cookies, CSRF, rate limits, audit logs, MIME and path validation |
-| Delivery | Nginx, Docker, Render Blueprint, optional Vercel frontend |
+| 公开端与后台 | Vue 3、TypeScript、Vite、Vue Router、Pinia、CSS Tokens、Lucide / Element Plus Icons |
+| API | Python 3.12、FastAPI、Pydantic、SQLAlchemy 2、Uvicorn |
+| 数据 | SQLite WAL、Alembic、公开 UUID 标识 |
+| 媒体 | Pillow、PyMuPDF、PDF.js、ffmpeg/ffprobe、Nginx Range |
+| 安全 | Argon2、HttpOnly Cookie、CSRF、限流、审计、MIME 与路径校验 |
+| 部署 | Nginx、Docker、Render Blueprint、可选 Vercel 前端 |
 
-## Quick start with Docker
+## Docker 快速启动
 
-The published image contains the frontend, backend, Nginx, ffmpeg, and runtime. Only the database and uploaded files are bind-mounted.
+官方镜像已经包含前端、后端、Nginx、ffmpeg 和运行环境，只需持久化数据库和上传目录：
 
 ```bash
 mkdir -p evidentfolio/data evidentfolio/uploads
 docker run -d --name evidentfolio --restart unless-stopped -p 8080:80 \
   -e EVIDENTFOLIO_SECRET_KEY="$(openssl rand -hex 32)" \
-  -e EVIDENTFOLIO_TRUSTED_HOSTS="localhost,127.0.0.1,your-domain.example" \
+  -e EVIDENTFOLIO_TRUSTED_HOSTS="localhost,127.0.0.1,你的域名" \
   -e EVIDENTFOLIO_SECURE_COOKIES=false \
   -v "$PWD/evidentfolio/data:/app/data" \
   -v "$PWD/evidentfolio/uploads:/app/uploads" \
   ghcr.io/gmkrxb/evidentfolio:latest
 ```
 
-Open `http://localhost:8080`. A blank installation redirects to `/admin/login`, where the one-time setup creates the first administrator and basic site identity. The setup endpoint closes as soon as an administrator exists.
+打开 `http://localhost:8080`。空白部署会自动进入 `/admin/login` 初始化页，创建第一个管理员和网站基础身份；管理员存在后，初始化接口立即关闭。
 
-For HTTPS, set `EVIDENTFOLIO_SECURE_COOKIES=true` and list the real host in `EVIDENTFOLIO_TRUSTED_HOSTS`.
+生产 HTTPS 环境请设置 `EVIDENTFOLIO_SECURE_COOKIES=true`，并将真实域名加入 `EVIDENTFOLIO_TRUSTED_HOSTS`。
 
-## Upgrading an existing database
+## 旧数据库自动升级
 
-Keep the same `data/` and `uploads/` mounts, pull the new image, and recreate the container. Every startup performs this sequence before accepting traffic:
+升级镜像时继续挂载原来的 `data/` 和 `uploads/`。容器每次启动、对外提供服务之前会自动执行：
 
-1. Verify database and upload paths are writable.
-2. Run SQLite `PRAGMA quick_check`.
-3. Create a one-time SQLite backup in `data/migration-backups/` for the current revision.
-4. Run `alembic upgrade head`.
-5. Run foreign-key and post-migration checks.
-6. Start the single Uvicorn worker and Nginx only if all checks pass.
+1. 检查数据库目录和上传目录是否可写；
+2. 执行 SQLite `PRAGMA quick_check`；
+3. 按当前迁移版本在 `data/migration-backups/` 创建一次性备份；
+4. 执行 `alembic upgrade head`；
+5. 检查外键和迁移后的数据库版本；
+6. 全部通过后才启动单 Worker Uvicorn 与 Nginx。
 
 ```bash
 docker pull ghcr.io/gmkrxb/evidentfolio:latest
 docker rm -f evidentfolio
-# Run the same docker run command again with the existing mounts.
+# 使用原来的目录挂载再次执行 docker run
 docker logs -f --tail 160 evidentfolio
 ```
 
-Old content is preserved. A failed check or migration stops startup instead of serving a partially migrated database. See [Deployment](docs/DEPLOYMENT.md) for backup, rollback, reverse proxy, source deployment, and external frontend/backend layouts.
+已有项目和设置不会被示例数据覆盖；检查或迁移失败时容器会停止，而不是用半迁移数据库继续运行。备份、回滚、域名、反向代理和分离部署见[完整部署指南](docs/DEPLOYMENT.md)。
 
-## Source development
+## 源码开发
 
-Prerequisites: Python 3.12, ffmpeg, Node.js 22+, and `cnpm`.
+要求 Python 3.12、ffmpeg、Node.js 22+ 和 `cnpm`。
 
-```bash
-# Backend (uses the selected Python installation; no project virtualenv is required)
+```powershell
+# 后端：直接使用当前 Python，不强制创建项目虚拟环境
 python -m pip install -r backend/requirements.txt
-cp deploy/config/config.example.py deploy/config/config.py
-cd backend
+Copy-Item deploy/config/config.example.py deploy/config/config.py
+Set-Location backend
 python -m app.startup preflight
 python -m alembic -c alembic.ini upgrade head
 python -m app.startup postflight
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 
-# Frontend, in another terminal
-cd frontend
+# 另开终端启动前端
+Set-Location frontend
 cnpm install
 cnpm run dev
 ```
 
-The Vite development proxy connects `/api` to `127.0.0.1:8000`. No API domain is hardcoded. For a separately hosted public frontend, set `VITE_API_BASE_URL` at build time.
+开发服务器自动将 `/api` 代理到 `127.0.0.1:8000`，前端没有硬编码域名。前后端分开托管时，可在构建阶段设置 `VITE_API_BASE_URL`。
 
-## Deployment choices
+## 部署方式
 
-| Method | Best for | Persistence |
+| 方式 | 适合场景 | 持久化方式 |
 | --- | --- | --- |
-| `ghcr.io/gmkrxb/evidentfolio:latest` | Simplest self-hosted deployment | Bind-mount `/app/data` and `/app/uploads` |
-| Build `Dockerfile.unified` | Auditable one-image deployment | Same two mounts |
-| External frontend/backend/runtime packages | Independent updates | External frontend, backend, data, uploads, and Python config |
-| Render Blueprint | Managed full-stack deployment | Persistent Render disk required |
-| Vercel frontend | Public read-only frontend in front of an existing API | Data remains on the API host |
-| Direct source | Development and custom infrastructure | Configure paths in `config.py` |
+| 官方一体镜像 | 最简单的自托管 | 映射 `/app/data`、`/app/uploads` |
+| 自行构建 `Dockerfile.unified` | 需要审计构建过程 | 同上 |
+| 前端、后端、运行环境分离包 | 独立更新代码和环境 | 外置前端、后端、数据、上传和 Python 配置 |
+| Render Blueprint | 托管式全栈部署 | 必须启用持久磁盘 |
+| Vercel 前端 | 为已有 API 部署公开只读前端 | 数据仍位于 API 主机 |
+| 直接源码 | 开发或自定义基础设施 | 由 `config.py` 指定路径 |
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/gmkrxb/evidentfolio)
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/gmkrxb/evidentfolio&root-directory=frontend&env=VITE_API_BASE_URL)
 
-Vercel is frontend-only because SQLite and uploads require a persistent filesystem. For same-origin admin cookies, prefer the all-in-one image or proxy `/api` through your own domain. Render uses the included persistent-disk Blueprint.
+Vercel 不适合直接承载 SQLite 与上传目录，因此这里只提供前端部署；需要同域后台 Cookie 时，请使用一体镜像或自行反代 `/api`。Render 配置使用项目内的持久磁盘 Blueprint。
 
-## Configuration
+## 配置方式
 
-Two production styles are supported without relying on a `.env` file:
+项目不依赖 `.env` 文件：
 
-- Docker image: variables prefixed with `EVIDENTFOLIO_`; the required value is `EVIDENTFOLIO_SECRET_KEY`.
-- Source or external-runtime deployment: copy `deploy/config/config.example.py` to the ignored `config.py`, then mount or point `PORTFOLIO_CONFIG` to it.
+- 官方 Docker 镜像读取 `EVIDENTFOLIO_` 前缀的环境变量，必须设置 `EVIDENTFOLIO_SECRET_KEY`；
+- 源码或外置运行环境复制 `deploy/config/config.example.py` 为被 Git 忽略的 `config.py`，再通过 `PORTFOLIO_CONFIG` 指定。
 
-Never commit `config.py`, API keys, databases, uploads, or migration backups. AI provider credentials are encrypted before database storage using the configured secret key.
+不要提交 `config.py`、AI Key、数据库、上传目录和迁移备份。AI 服务密钥会使用系统 `SECRET_KEY` 加密后再写入数据库。
 
-## Project map
+## 目录、测试与贡献
 
-See [Project structure](docs/PROJECT_STRUCTURE.md) for the responsibility of every first-party top-level file and code directory. PDF.js CMaps, fonts, and WASM are grouped as vendored runtime assets and retain their upstream licenses.
-
-## Quality gates
+- [项目目录与文件职责](docs/PROJECT_STRUCTURE.md)
+- [系统架构](docs/ARCHITECTURE.md)
+- [完整部署指南](docs/DEPLOYMENT.md)
+- [API 文档](docs/API.md)
+- [贡献规范](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
+- [版本记录](CHANGELOG.md)
 
 ```bash
-cd frontend
-cnpm run type-check
-cnpm run test
-cnpm run build
-
-cd ../backend
-pytest
-
-cd ..
-docker build --platform linux/amd64 -f Dockerfile.unified -t evidentfolio:local .
+cd frontend && cnpm run type-check && cnpm run test && cnpm run build
+cd ../backend && pytest
+cd .. && docker build --platform linux/amd64 -f Dockerfile.unified -t evidentfolio:local .
 ```
 
-The test suite covers initialization closure, login and CSRF, project CRUD and visibility, UUID access, upload security, path traversal, folder dependencies, analytics, bilingual content, AI-key redaction, empty database migration, and previous-version migration with content preservation.
+PR 必须聚焦、可测试、有文档，并且不能包含个人数据库、简历、上传资源或密钥。安全问题请遵循 `SECURITY.md` 私下报告。
 
-## Contributing and security
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. PRs must be focused, tested, documented, and free of personal data or generated databases. Security issues should follow [SECURITY.md](SECURITY.md), not a public issue.
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Deployment guide](docs/DEPLOYMENT.md)
-- [API guide](docs/API.en.md)
-- [Changelog](CHANGELOG.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-
-## Star history
+## Star 趋势
 
 [![Star History Chart](https://api.star-history.com/svg?repos=gmkrxb/evidentfolio&type=Date)](https://star-history.com/#gmkrxb/evidentfolio&Date)
 
-## License
+## 许可证
 
-[MIT](LICENSE) © 2026 Mingke Gu and EvidentFolio contributors.
+[MIT](LICENSE) © 2026 Mingke Gu 与 EvidentFolio 贡献者。

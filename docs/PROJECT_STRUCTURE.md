@@ -1,98 +1,135 @@
-# Project structure / 项目目录说明
+# 项目目录与文件职责说明
 
-This map describes every first-party top-level file and code area. Large PDF.js CMap/font/WASM collections are vendored runtime assets and are documented as a group rather than listing hundreds of upstream files individually.
+[English](PROJECT_STRUCTURE.en.md)
 
-本页说明所有一方顶层文件和代码区域。PDF.js 的 CMap、字体和 WASM 属于上游运行资源，因此按资源组说明，不逐个重复列出数百个文件。
+本页说明仓库内一方代码、顶层目录和主要文件的职责。PDF.js 的 CMap、字体和 WASM 属于上游运行资源，因此按资源组说明，不逐个列出数百个文件。
 
-## Root / 根目录
+## 根目录
 
-| Path | Responsibility / 职责 |
+| 路径 | 职责 |
 | --- | --- |
-| `README.md`, `README.zh-CN.md` | English and Chinese project entry documents / 中英文项目入口 |
-| `LICENSE` | MIT license / MIT 许可证 |
-| `CHANGELOG.md` | Semantic release history / 语义化版本记录 |
-| `CONTRIBUTING*.md` | Contribution and PR rules / 贡献与 PR 规范 |
-| `CODE_OF_CONDUCT.md` | Community behavior policy / 社区行为准则 |
-| `SECURITY.md` | Private vulnerability reporting and operator checklist / 安全报告与部署者清单 |
-| `.gitignore` | Excludes secrets, databases, uploads, builds, caches, and release binaries / 排除敏感和生成文件 |
-| `.dockerignore` | Keeps local data and release artifacts out of image layers / 防止本地数据进入镜像 |
-| `.editorconfig`, `.gitattributes` | Cross-platform formatting and line endings / 跨平台格式规则 |
-| `Dockerfile.unified` | Published all-in-one frontend + API + Nginx image / 官方一体镜像 |
-| `Dockerfile.frontend` | Standalone static frontend image / 独立前端镜像 |
-| `Dockerfile.backend` | Standalone FastAPI image / 独立后端镜像 |
-| `Dockerfile.runtime` | Runtime-only image for externally mounted frontend/backend / 外置代码运行环境镜像 |
-| `render.yaml` | Render Blueprint with persistent disk / Render 一键部署配置 |
+| `README.md` | 默认中文项目入口、能力概览、快速启动与文档导航 |
+| `README.en.md` | 英文项目入口 |
+| `LICENSE` | MIT 许可证 |
+| `CHANGELOG.md` | 语义化版本与变更记录 |
+| `CONTRIBUTING.md` | 默认中文贡献与 PR 规范 |
+| `CONTRIBUTING.en.md` | 英文贡献与 PR 规范 |
+| `CODE_OF_CONDUCT.md` | 社区行为准则 |
+| `SECURITY.md` | 漏洞报告规则与部署者安全检查项 |
+| `.gitignore` | 排除密钥、数据库、上传资源、构建结果、缓存和发行二进制文件 |
+| `.dockerignore` | 防止本地数据和发行产物进入容器构建上下文 |
+| `.editorconfig`, `.gitattributes` | 跨平台格式、编码与换行规则 |
+| `Dockerfile.unified` | 前端 + API + Nginx 的官方一体镜像 |
+| `Dockerfile.frontend` | 独立静态前端镜像 |
+| `Dockerfile.backend` | 独立 FastAPI 后端镜像 |
+| `Dockerfile.runtime` | 用于外置前后端代码的运行环境镜像 |
+| `render.yaml` | 带持久磁盘的 Render Blueprint 配置 |
 
-## `frontend/`
+## `frontend/` 前端目录
 
-| Path | Responsibility / 职责 |
+| 路径 | 职责 |
 | --- | --- |
-| `package.json` | Dependencies and `cnpm`-compatible scripts / 依赖和脚本 |
-| `vite.config.ts` | Build chunks, development proxy, and Vitest / 构建、代理和测试配置 |
-| `tsconfig.json`, `src/env.d.ts` | TypeScript and optional API build variable types / TypeScript 配置 |
-| `index.html` | Generic non-personalized application shell / 通用入口页面 |
-| `vercel.json` | Vercel frontend-only deployment / Vercel 前端部署 |
-| `public/favicon.svg` | Generic EvidentFolio mark / 通用图标 |
-| `public/pdfjs/` | Vendored PDF.js CMaps, fonts, WASM, and upstream licenses / PDF 中文与渲染资源 |
-| `src/main.ts`, `src/App.vue` | Vue bootstrap, global transitions, and toast host / Vue 启动与全局容器 |
-| `src/router/` | Lazy public/admin routes, `/en`, auth and first-setup guards / 路由与守卫 |
-| `src/api/` | Typed HTTP clients for public, admin, upload, and SSE APIs / API 封装 |
-| `src/stores/` | Pinia auth, site, locale, and toast state / 全局状态 |
-| `src/i18n/` | Fixed Chinese/English UI message packages / 固定界面语言包 |
-| `src/types/` | Shared TypeScript domain contracts / 领域类型 |
-| `src/layouts/` | Independent public and admin shells / 公开端与后台布局 |
-| `src/views/public/` | Home, project, résumé, credential, contact, and asset pages / 公开页面 |
-| `src/views/admin/` | Dashboard and all content/settings/analytics editors / 后台页面 |
-| `src/components/public/` | Header, footer, project cards, coding and pointer interactions / 公开组件 |
-| `src/components/admin/` | Folder-aware reusable resource picker / 后台资源选择器 |
-| `src/components/content/` | PDF viewer, Markdown renderer, and image lightbox / 内容预览组件 |
-| `src/components/icons/`, `src/icons/` | Uploaded SVG/image icons and searchable icon registry / 图标系统 |
-| `src/components/ui/` | Shared select, loading, empty, and error states / 通用状态组件 |
-| `src/composables/` | Async state, metadata, and analytics behavior / 组合式逻辑 |
-| `src/directives/` | Reduced-motion-aware reveal behavior / 入场动画指令 |
-| `src/utils/` | Clone safety, retry, labels, image recovery, and SSE parsing / 通用工具 |
-| `src/styles/` | Design tokens, responsive layouts, motion, and accessibility / 全局视觉系统 |
+| `package.json` | 前端依赖、开发、测试与构建脚本 |
+| `vite.config.ts` | Vite 构建、开发代理与 Vitest 配置 |
+| `tsconfig.json`, `src/env.d.ts` | TypeScript 与可选 API 构建变量类型 |
+| `index.html` | 通用、非个人化应用入口页面 |
+| `vercel.json` | Vercel 前端独立部署配置 |
+| `public/favicon.svg` | EvidentFolio 通用图标 |
+| `public/pdfjs/` | PDF.js CMap、字体、WASM 与上游许可证 |
+| `src/main.ts`, `src/App.vue` | Vue 启动、全局过渡与消息容器 |
+| `src/router/` | 公开端、管理端、`/en`、认证与首次初始化路由守卫 |
+| `src/api/` | 公开端、后台、上传与 SSE 的类型化 HTTP 客户端 |
+| `src/stores/` | Pinia 认证、站点、语言和消息状态 |
+| `src/i18n/` | 固定中英文界面语言包 |
+| `src/types/` | 前端共享领域类型定义 |
+| `src/layouts/` | 公开端与后台独立布局 |
+| `src/views/public/` | 首页、项目、简历、证书、联系与资源页面 |
+| `src/views/admin/` | 仪表盘及内容、设置、分析等后台编辑页面 |
+| `src/components/public/` | 公开端页头、页脚、项目卡片与交互组件 |
+| `src/components/admin/` | 后台可复用资源选择器等管理组件 |
+| `src/components/content/` | PDF 查看、Markdown 渲染与图片灯箱 |
+| `src/components/icons/`, `src/icons/` | SVG/图片图标及可搜索图标注册表 |
+| `src/components/ui/` | 选择器、加载、空状态和错误状态等通用组件 |
+| `src/composables/` | 异步状态、页面元数据与分析逻辑 |
+| `src/directives/` | 尊重减少动画偏好的入场指令 |
+| `src/utils/` | 克隆安全、重试、标签、图片恢复与 SSE 解析等工具 |
+| `src/styles/` | 设计变量、响应式布局、动画与可访问性样式 |
 
-## `backend/`
+目录级说明见 `frontend/FRONTEND_APP_v1.0.0.md`。
 
-| Path | Responsibility / 职责 |
+## `backend/` 后端目录
+
+| 路径 | 职责 |
 | --- | --- |
-| `requirements.txt`, `pyproject.toml` | Python dependencies and test/lint settings / Python 依赖与质量配置 |
-| `alembic.ini`, `alembic/` | Ordered, non-destructive schema migrations / 数据库迁移 |
-| `entrypoint.sh` | Standalone API preflight → migration → postflight → Uvicorn / 后端启动链 |
-| `app/main.py` | FastAPI lifecycle, middleware, errors, health, sitemap, and routers / API 入口 |
-| `app/startup.py` | Writable/integrity checks and revision-based SQLite backup / 启动检查与迁移备份 |
-| `app/core/` | Python configuration loading, SQLite engine, UTC time, and logs / 基础设施 |
-| `app/models/` | SQLAlchemy entities and relationships / 数据模型 |
-| `app/schemas/` | Pydantic request/response contracts / API Schema |
-| `app/repositories/` | Query and persistence operations / 数据访问 |
-| `app/services/` | Auth, project, serializer, and AI business logic / 业务服务 |
-| `app/api/routes/` | Public, auth, admin, analytics, and AI endpoints / HTTP 路由 |
-| `app/api/dependencies.py` | Session, CSRF, and admin guards / 权限依赖 |
-| `app/api/response.py`, `audit.py` | Unified envelopes, errors, and audit writes / 统一响应与审计 |
-| `app/file_processing/` | Validation, thumbnails, metadata, safe Office/ZIP/text previews / 文件处理 |
-| `app/analytics/` | Event recording, geolocation, aggregation, and scoring / 访问分析 |
-| `app/security/` | Trusted-proxy/IP and SVG sanitization / 网络与 SVG 安全 |
-| `app/classify_assets.py` | Optional operator utility for organizing existing assets / 资源整理工具 |
-| `tests/` | Auth, CRUD, media, analytics, security, i18n, AI, and migration tests / 后端测试 |
+| `requirements.txt`, `pyproject.toml` | Python 依赖与测试/质量配置 |
+| `alembic.ini`, `alembic/` | 按顺序执行、非破坏式数据库迁移 |
+| `entrypoint.sh` | 独立 API 的启动检查 → 迁移 → 后置检查 → Uvicorn 链路 |
+| `app/main.py` | FastAPI 生命周期、中间件、错误处理、健康检查、站点地图与路由入口 |
+| `app/startup.py` | 可写性/完整性检查及按迁移版本生成 SQLite 备份 |
+| `app/core/` | Python 配置加载、SQLite 引擎、UTC 时间与日志 |
+| `app/models/` | SQLAlchemy 实体与关系 |
+| `app/schemas/` | Pydantic 请求/响应数据契约 |
+| `app/repositories/` | 查询与持久化操作 |
+| `app/services/` | 认证、项目、序列化和 AI 等业务逻辑 |
+| `app/api/routes/` | 公开、认证、后台、分析和 AI HTTP 路由 |
+| `app/api/dependencies.py` | Session、CSRF 与管理员权限依赖 |
+| `app/api/response.py`, `audit.py` | 统一响应、错误与审计写入 |
+| `app/file_processing/` | 文件校验、缩略图、元数据与安全预览 |
+| `app/analytics/` | 事件记录、地理位置、聚合与评分 |
+| `app/security/` | 可信代理、客户端 IP 与 SVG 安全规则 |
+| `app/classify_assets.py` | 可选的既有资源整理工具 |
+| `tests/` | 认证、CRUD、媒体、分析、安全、国际化、AI 与迁移测试 |
 
-## `deploy/`, `docs/`, data paths
+目录级说明见 `backend/BACKEND_SERVICE_v1.0.0.md`。
 
-| Path | Responsibility / 职责 |
+## `deploy/` 部署目录
+
+| 路径 | 职责 |
 | --- | --- |
-| `deploy/config/config.example.py` | Source/external-runtime Python configuration template / Python 配置模板 |
-| `deploy/config/config.container.py` | Environment-backed config embedded in the all-in-one image / 一体镜像配置 |
-| `deploy/nginx/` | SPA, API proxy, MIME, caching, Range, and security headers / Nginx 配置 |
-| `deploy/supervisor/` | Runs one API worker and Nginx / 进程管理 |
-| `deploy/*entrypoint.sh` | Startup checks and automatic Alembic migration / 自动迁移入口 |
-| `deploy/backup.ps1`, `restore.ps1` | Local backup and restore helpers / 备份恢复脚本 |
-| `deploy/run.ps1`, `stop.ps1` | Windows Docker helpers / Windows 容器脚本 |
-| `docs/API*.md` | API usage and conventions / API 文档 |
-| `docs/ARCHITECTURE.md` | Runtime, data, security, and module boundaries / 架构说明 |
-| `docs/DEPLOYMENT*.md` | English/Chinese installation, update, and rollback guides / 中英文部署指南 |
-| `docs/images/` | Sanitized documentation screenshots only / 脱敏文档截图 |
-| `data/` | Ignored SQLite database and migration backups / 被忽略的数据库目录 |
-| `uploads/` | Ignored UUID media tree / 被忽略的上传目录 |
-| `release/` | Ignored local release binaries generated without dates in names / 本地发布产物 |
-| `scripts/` | Reproducible release packaging helpers / 发布脚本 |
-| `.github/` | CI, Docker publishing, Issue/PR templates, and dependency updates / GitHub 自动化 |
+| `config/config.example.py` | 源码或外置运行环境 Python 配置模板 |
+| `config/config.container.py` | 一体镜像内部使用的环境变量配置 |
+| `nginx/` | SPA、API 反代、MIME、缓存、Range 与安全响应头配置 |
+| `supervisor/` | 单 API Worker 与 Nginx 进程管理 |
+| `*entrypoint.sh` | 启动检查与自动 Alembic 迁移入口 |
+| `backup.ps1`, `restore.ps1` | 本地数据备份与恢复辅助脚本 |
+| `run.ps1`, `stop.ps1` | Windows Docker 启停辅助脚本 |
+
+目录级说明见 `deploy/DEPLOY_TOOLKIT_v1.0.0.md`。
+
+## `docs/` 文档目录
+
+| 路径 | 职责 |
+| --- | --- |
+| `API.md` | 默认中文 API 使用说明 |
+| `API.en.md` | 英文 API 使用说明 |
+| `ARCHITECTURE.md` | 默认中文系统架构说明 |
+| `ARCHITECTURE.en.md` | 英文系统架构说明 |
+| `DEPLOYMENT.md` | 默认中文安装、升级、备份与回滚指南 |
+| `DEPLOYMENT.en.md` | 英文部署指南 |
+| `DEPLOYMENT.zh-CN.md` | 旧中文链接兼容入口 |
+| `PROJECT_STRUCTURE.md` | 默认中文仓库目录与文件职责说明 |
+| `PROJECT_STRUCTURE.en.md` | 英文目录与文件职责说明 |
+| `images/` | 仅保存经过脱敏的项目文档截图 |
+
+目录级说明见 `docs/DOCUMENTATION_INDEX_v1.0.0.md`。
+
+## `data/` 数据目录
+
+`data/` 用于运行时 SQLite 数据库和迁移备份。真实数据库与备份文件属于部署数据，不属于源码，仓库只保留必要的目录占位。目录级说明见 `data/DATA_RUNTIME_v1.0.0.md`。
+
+## `scripts/` 发布脚本目录
+
+`scripts/` 保存 Windows PowerShell 与 Unix Shell 的可重复发行打包脚本，发行产物写入被 Git 忽略的 `release/`。目录级说明见 `scripts/RELEASE_TOOLING_v1.0.0.md`。
+
+## `.github/` GitHub 自动化与治理目录
+
+`.github/` 保存 CI、Docker 发布工作流、Issue/PR 模板、Dependabot 和仓库治理说明。目录级说明及 `main` 分支保护建议见 `.github/REPOSITORY_GOVERNANCE_v1.0.0.md`。
+
+## 默认文档语言约定
+
+仓库默认文档语言为**简体中文**：
+
+- 不带语言后缀的 Markdown 文档优先作为中文默认入口；
+- 英文版本统一使用 `.en.md`；
+- 已存在的 `.zh-CN.md` 可以作为兼容旧链接的跳转入口；
+- 目录说明、文件职责说明和仓库治理说明均以中文描述为默认。

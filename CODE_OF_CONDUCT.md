@@ -1,15 +1,21 @@
-# Contributor Covenant Code of Conduct
+# 社区行为准则
 
-We pledge to make participation in EvidentFolio a harassment-free experience for everyone, regardless of background, identity, experience, or ability.
+[English](CODE_OF_CONDUCT.en.md)
 
-Be respectful, specific, and constructive. Critique ideas and code, not people. Respect privacy: never post another person's résumé, contact details, visitor data, credentials, or private project material.
+我们承诺为所有参与 EvidentFolio 的贡献者提供不受骚扰的协作环境，不因背景、身份、经验或能力产生差别对待。
 
-Unacceptable behavior includes harassment, discriminatory language, threats, deliberate disclosure of private information, and sustained disruption. Maintainers may edit, remove, reject, or ban contributions and participants when necessary to protect the community.
+参与讨论、Issue、Pull Request 和代码审查时，请保持尊重、具体和建设性。可以直接批评方案、实现和代码，但不要攻击个人。
 
-Report conduct concerns privately through the maintainer contact listed on the GitHub repository. Enforcement decisions will consider context, impact, and repeated behavior.
+请尊重隐私：禁止公开他人的简历、联系方式、访客数据、登录凭证、私有项目资料或其他未经授权的信息。
 
-## 中文说明
+以下行为不可接受：
 
-我们承诺为所有参与者提供不受骚扰的协作环境。请保持尊重、具体和建设性，只讨论方案与代码，不攻击个人。禁止公开他人的简历、联系方式、访客数据、登录凭证或私有项目资料。
+- 骚扰、侮辱或歧视性表达；
+- 威胁或针对个人的攻击；
+- 故意泄露私人信息；
+- 持续破坏正常协作、Issue 或 PR 讨论；
+- 明知存在隐私或安全风险仍继续传播相关内容。
 
-骚扰、歧视、威胁、故意泄露隐私和持续破坏协作均不可接受。维护者可以为保护社区而编辑、删除或拒绝内容，并限制相关参与者。行为问题请通过仓库维护者提供的私下渠道报告。
+为保护项目协作环境，维护者可以根据具体情况编辑、删除或拒绝相关内容，并限制持续违反规则的参与者。
+
+行为问题请通过仓库维护者提供的私下联系方式报告。处理时会结合上下文、实际影响以及是否存在重复行为进行判断。
