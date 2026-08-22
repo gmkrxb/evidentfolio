@@ -1,11 +1,11 @@
 # EvidentFolio 发布脚本说明
 
 - **目录**：`scripts/`
-- **组件**：Release Tooling
+- **组件**：发布工具
 - **组件说明版本**：1.0.0
 - **对应项目版本**：EvidentFolio 1.0.0
 
-## 职责
+## 目录职责
 
 该目录保存可重复执行的发布打包辅助脚本，用于生成本地发行产物，并保持 Windows PowerShell 与 Unix Shell 的基本发布流程一致。
 
