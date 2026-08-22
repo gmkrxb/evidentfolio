@@ -8,8 +8,8 @@
 <p align="center">
   <a href="README.en.md">English</a> ·
   在线演示 ·
-  <a href="docs/DEPLOYMENT.zh-CN.md">部署指南</a> ·
-  <a href="CONTRIBUTING.zh-CN.md">参与贡献</a>
+  <a href="docs/DEPLOYMENT.md">部署指南</a> ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
 </p>
 
 <p align="center">
@@ -97,7 +97,7 @@ docker rm -f evidentfolio
 docker logs -f --tail 160 evidentfolio
 ```
 
-已有项目和设置不会被示例数据覆盖；检查或迁移失败时容器会停止，而不是用半迁移数据库继续运行。备份、回滚、域名、反向代理和分离部署见[完整部署指南](docs/DEPLOYMENT.zh-CN.md)。
+已有项目和设置不会被示例数据覆盖；检查或迁移失败时容器会停止，而不是用半迁移数据库继续运行。备份、回滚、域名、反向代理和分离部署见[完整部署指南](docs/DEPLOYMENT.md)。
 
 ## 源码开发
 
@@ -150,9 +150,9 @@ Vercel 不适合直接承载 SQLite 与上传目录，因此这里只提供前�
 
 - [项目目录与文件职责](docs/PROJECT_STRUCTURE.md)
 - [系统架构](docs/ARCHITECTURE.md)
-- [完整部署指南](docs/DEPLOYMENT.zh-CN.md)
+- [完整部署指南](docs/DEPLOYMENT.md)
 - [API 文档](docs/API.md)
-- [贡献规范](CONTRIBUTING.zh-CN.md)
+- [贡献规范](CONTRIBUTING.md)
 - [安全策略](SECURITY.md)
 - [版本记录](CHANGELOG.md)
 
