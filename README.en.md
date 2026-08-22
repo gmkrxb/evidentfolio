@@ -8,8 +8,8 @@
 <p align="center">
   <a href="README.md">简体中文</a> ·
   Live demo ·
-  <a href="docs/DEPLOYMENT.md">Deployment</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
+  <a href="docs/DEPLOYMENT.en.md">Deployment</a> ·
+  <a href="CONTRIBUTING.en.md">Contributing</a>
 </p>
 
 <p align="center">
@@ -99,7 +99,7 @@ docker rm -f evidentfolio
 docker logs -f --tail 160 evidentfolio
 ```
 
-Old content is preserved. A failed check or migration stops startup instead of serving a partially migrated database. See [Deployment](docs/DEPLOYMENT.md) for backup, rollback, reverse proxy, source deployment, and external frontend/backend layouts.
+Old content is preserved. A failed check or migration stops startup instead of serving a partially migrated database. See [Deployment](docs/DEPLOYMENT.en.md) for backup, rollback, reverse proxy, source deployment, and external frontend/backend layouts.
 
 ## Source development
 
@@ -150,7 +150,7 @@ Never commit `config.py`, API keys, databases, uploads, or migration backups. AI
 
 ## Project map
 
-See [Project structure](docs/PROJECT_STRUCTURE.md) for the responsibility of every first-party top-level file and code directory. PDF.js CMaps, fonts, and WASM are grouped as vendored runtime assets and retain their upstream licenses.
+See [Project structure](docs/PROJECT_STRUCTURE.en.md) for the responsibility of every first-party top-level file and code directory. PDF.js CMaps, fonts, and WASM are grouped as vendored runtime assets and retain their upstream licenses.
 
 ## Quality gates
 
@@ -171,13 +171,13 @@ The test suite covers initialization closure, login and CSRF, project CRUD and v
 
 ## Contributing and security
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. PRs must be focused, tested, documented, and free of personal data or generated databases. Security issues should follow [SECURITY.md](SECURITY.md), not a public issue.
+Read [CONTRIBUTING.en.md](CONTRIBUTING.en.md) before opening a pull request. PRs must be focused, tested, documented, and free of personal data or generated databases. Security issues should follow [SECURITY.en.md](SECURITY.en.md), not a public issue.
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Deployment guide](docs/DEPLOYMENT.md)
+- [Architecture](docs/ARCHITECTURE.en.md)
+- [Deployment guide](docs/DEPLOYMENT.en.md)
 - [API guide](docs/API.en.md)
 - [Changelog](CHANGELOG.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Code of Conduct](CODE_OF_CONDUCT.en.md)
 
 ## Star history
 
