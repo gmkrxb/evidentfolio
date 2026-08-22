@@ -166,17 +166,13 @@ PR 必须聚焦、可测试、有文档，并且不能包含个人数据库、�
 
 ## Star 趋势
 
-<p align="center">
-  <a href="https://www.star-history.com/gmkrxb/evidentfolio">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank&theme=dark" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank" />
-      <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank" />
-    </picture>
-  </a>
-</p>
-
-[查看 EvidentFolio 的 Star History](https://www.star-history.com/gmkrxb/evidentfolio)
+<a href="https://www.star-history.com/?repos=gmkrxb%2Fevidentfolio&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=gmkrxb/evidentfolio&type=date&theme=dark&legend=bottom-right&sealed_token=y1HJh7EPBQfrta0Na6cMQKe3F8gs9dXUzCgaRJ1ADjssOr0pvb-PIL7ukedxHabOymptbSVL27U8IK3tUZdtQZdnyBSzZzIjjjyqXJM1sE0zrjlZts3TLp4VoICCIN_Te9u2CE6S5ytdUgE7T1EJhnT35Jq8GDXRtmPQ8GA0WeQSIzgpXtYgescTw_op" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=gmkrxb/evidentfolio&type=date&legend=bottom-right&sealed_token=y1HJh7EPBQfrta0Na6cMQKe3F8gs9dXUzCgaRJ1ADjssOr0pvb-PIL7ukedxHabOymptbSVL27U8IK3tUZdtQZdnyBSzZzIjjjyqXJM1sE0zrjlZts3TLp4VoICCIN_Te9u2CE6S5ytdUgE7T1EJhnT35Jq8GDXRtmPQ8GA0WeQSIzgpXtYgescTw_op" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=gmkrxb/evidentfolio&type=date&legend=bottom-right&sealed_token=y1HJh7EPBQfrta0Na6cMQKe3F8gs9dXUzCgaRJ1ADjssOr0pvb-PIL7ukedxHabOymptbSVL27U8IK3tUZdtQZdnyBSzZzIjjjyqXJM1sE0zrjlZts3TLp4VoICCIN_Te9u2CE6S5ytdUgE7T1EJhnT35Jq8GDXRtmPQ8GA0WeQSIzgpXtYgescTw_op" />
+ </picture>
+</a>
 
 ## 许可证
 
