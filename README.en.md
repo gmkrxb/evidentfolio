@@ -181,7 +181,17 @@ Read [CONTRIBUTING.en.md](CONTRIBUTING.en.md) before opening a pull request. PRs
 
 ## Star history
 
-[![Star History Chart](https://api.star-history.com/svg?repos=gmkrxb/evidentfolio&type=Date)](https://star-history.com/#gmkrxb/evidentfolio&Date)
+<p align="center">
+  <a href="https://www.star-history.com/gmkrxb/evidentfolio">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank" />
+      <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank" />
+    </picture>
+  </a>
+</p>
+
+[View EvidentFolio on Star History](https://www.star-history.com/gmkrxb/evidentfolio)
 
 ## License
 
