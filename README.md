@@ -166,7 +166,17 @@ PR 必须聚焦、可测试、有文档，并且不能包含个人数据库、�
 
 ## Star 趋势
 
-[![Star History Chart](https://api.star-history.com/svg?repos=gmkrxb/evidentfolio&type=Date)](https://star-history.com/#gmkrxb/evidentfolio&Date)
+<p align="center">
+  <a href="https://www.star-history.com/gmkrxb/evidentfolio">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank&theme=dark" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank" />
+      <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=gmkrxb/evidentfolio&type=rank" />
+    </picture>
+  </a>
+</p>
+
+[查看 EvidentFolio 的 Star History](https://www.star-history.com/gmkrxb/evidentfolio)
 
 ## 许可证
 
