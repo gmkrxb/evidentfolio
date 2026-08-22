@@ -10,5 +10,5 @@ PyMuPDF==1.26.3
 user-agents==2.2.0
 httpx==0.28.1
 cryptography==45.0.5
-pytest==8.4.1
+pytest==9.1.1
 pytest-cov==6.2.1
