@@ -7,7 +7,7 @@ COPY frontend/ .
 RUN ./node_modules/.bin/vue-tsc --noEmit \
     && ./node_modules/.bin/vite build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
