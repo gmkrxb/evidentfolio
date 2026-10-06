@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="README.en.md">English</a> ·
-  在线演示 ·
+  <a href="https://life.gumingke.cloud">在线演示</a> ·
   <a href="docs/DEPLOYMENT.md">部署指南</a> ·
   <a href="CONTRIBUTING.md">参与贡献</a>
 </p>
