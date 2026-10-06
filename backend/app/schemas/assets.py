@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -8,8 +10,15 @@ class AssetPatch(BaseModel):
     description: str = ""
     logical_group: str = Field(default="", max_length=120)
     is_public: bool = False
+    access_mode: Literal["download", "view"] | None = None
     folder_uuid: str | None = None
     translations: dict[str, dict] = Field(default_factory=dict)
+
+
+class AssetLibraryReplacement(BaseModel):
+    source_uuid: str
+    expected_sha256: str = Field(min_length=64, max_length=64)
+    source_sha256: str = Field(min_length=64, max_length=64)
 
 
 class AssetFolderInput(BaseModel):

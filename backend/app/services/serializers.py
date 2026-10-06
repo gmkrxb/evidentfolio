@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.security.asset_access import is_previewable, is_view_only
 from app.models import Asset, Certificate, Project, Resume
 
 
@@ -19,6 +20,7 @@ def asset_dict(asset: Asset | None, locale: str | None = None) -> dict | None:
     return {
         "uuid": asset.uuid,
         "original_name": asset.original_name,
+        "version": asset.version,
         "display_name": translated(asset, "display_name", locale),
         "mime_type": asset.mime_type,
         "extension": asset.extension,
@@ -29,6 +31,9 @@ def asset_dict(asset: Asset | None, locale: str | None = None) -> dict | None:
         "height": asset.height,
         "duration": asset.duration,
         "is_public": asset.is_public,
+        "access_mode": asset.access_mode or "download",
+        "previewable": is_previewable(asset.mime_type, asset.extension),
+        "protected": is_view_only(asset),
         "description": translated(asset, "description", locale),
         "logical_group": asset.logical_group,
         "folder": (
@@ -47,15 +52,16 @@ def asset_dict(asset: Asset | None, locale: str | None = None) -> dict | None:
         "content_url": f"/api/v1/public/assets/{asset.uuid}/content",
         "download_url": f"/api/v1/public/assets/{asset.uuid}/download",
         "thumbnail_url": (
-            f"/api/v1/public/assets/{asset.uuid}/thumbnail" if asset.thumbnail_path else None
+            f"/api/v1/public/assets/{asset.uuid}/thumbnail?v={asset.sha256[:16]}" if asset.thumbnail_path else None
         ),
     }
 
 
-def resume_dict(resume: Resume) -> dict:
+def resume_dict(resume: Resume, locale: str | None = None) -> dict:
     return {
         "uuid": resume.uuid,
-        "name": resume.name,
+        "name": translated(resume, "name", locale),
+        "translations": resume.translations or {},
         "language": resume.language,
         "resume_type": resume.resume_type,
         "is_default": resume.is_default,
@@ -65,7 +71,7 @@ def resume_dict(resume: Resume) -> dict:
         "download_count": resume.download_count,
         "created_at": resume.created_at,
         "updated_at": resume.updated_at,
-        "asset": asset_dict(resume.asset),
+        "asset": asset_dict(resume.asset, locale),
     }
 
 
@@ -132,18 +138,19 @@ def project_dict(
         for relation in album.assets:
             all_media_assets[relation.asset.uuid] = relation.asset
 
+    # 指定封面优先，再从项目和相册补图；相同文件不重复占位。
     auto_cover_assets: list[dict] = []
-    if not project.cover_asset:
-        for relation in project.assets:
-            asset = relation.asset
-            if asset.uuid in {item["uuid"] for item in auto_cover_assets}:
-                continue
-            if asset.is_public and asset.mime_type.startswith("image/"):
-                item = asset_dict(asset, locale)
-                if item:
-                    auto_cover_assets.append(item)
-            if len(auto_cover_assets) >= 4:
-                break
+    seen_images: set[str] = set()
+    for asset in [project.cover_asset, *all_media_assets.values()]:
+        if not asset or not asset.is_public or not asset.mime_type.startswith("image/"):
+            continue
+        identity = asset.sha256 or asset.uuid
+        if identity in seen_images:
+            continue
+        seen_images.add(identity)
+        auto_cover_assets.append(asset_dict(asset, locale))
+        if len(auto_cover_assets) >= 4:
+            break
 
     albums = [
         {
@@ -156,7 +163,7 @@ def project_dict(
             "assets": [
                 {
                     "uuid": relation.uuid,
-                    "caption": relation.caption,
+                    "caption": translated(relation, "caption", locale),
                     "sort_order": relation.sort_order,
                     "asset": asset_dict(relation.asset, locale),
                 }
@@ -210,7 +217,8 @@ def project_dict(
         "links": [
             {
                 "uuid": link.uuid,
-                "label": link.label,
+                "label": translated(link, "label", locale),
+                "translations": link.translations or {},
                 "url": link.url,
                 "link_type": link.link_type,
                 "sort_order": link.sort_order,
@@ -247,7 +255,7 @@ def project_dict(
             {
                 "uuid": relation.uuid,
                 "usage": relation.usage,
-                "caption": relation.caption,
+                "caption": translated(relation, "caption", locale),
                 "sort_order": relation.sort_order,
                 "asset": asset_dict(relation.asset, locale),
             }

@@ -1,3 +1,4 @@
+import { Github } from 'lucide-vue-next'
 import {
   Aim,
   Bell,
@@ -35,6 +36,7 @@ import {
 } from '@element-plus/icons-vue'
 
 export const iconRegistry = {
+  Github,
   Aim,
   Bell,
   Briefcase,
@@ -71,4 +73,3 @@ export const iconRegistry = {
 }
 
 export type IconRegistryName = keyof typeof iconRegistry
-

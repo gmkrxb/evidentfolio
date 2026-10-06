@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import AssetPickerField from '@/components/admin/AssetPickerField.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { Award, Eye, FileBadge, Languages, Pencil, Plus, Trash2, X } from 'lucide-vue-next'
+import AssetReplaceButton from '@/components/admin/AssetReplaceButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
@@ -10,13 +12,16 @@ import { useToastStore } from '@/stores/toast'
 import type { Asset, Certificate } from '@/types'
 import IconPicker from '@/components/icons/IconPicker.vue'
 import { certificateTypeLabel } from '@/utils/labels'
-import { readSse } from '@/utils/sse'
+import { useAiTask } from '@/composables/useAiTask'
+import AiProgressPanel from '@/components/admin/AiProgressPanel.vue'
+const ai = useAiTask()
 
 const state = useAsyncState<{ items: Certificate[] }>()
 const assets = ref<Asset[]>([])
 const images = ref<Asset[]>([])
 const editing = ref<Certificate | 'new' | null>(null)
 const toast = useToastStore()
+const saving = ref(false)
 const editLocale = ref<'zh-CN' | 'en'>('zh-CN')
 const translating = ref(false)
 const form = reactive({
@@ -30,13 +35,14 @@ const english = reactive({ name: '', issuer: '', description: '' })
 async function load() {
   await Promise.all([
     state.run(() => adminApi.certificates()),
-    adminApi.assets({ page_size: 100 }).then((result) => {
+    adminApi.allAssets().then((result) => {
       assets.value = result.items.filter((item) => item.mime_type === 'application/pdf' || item.mime_type.startsWith('image/'))
       images.value = result.items.filter((item) => item.mime_type.startsWith('image/'))
     }),
   ])
 }
 function open(item?: Certificate) {
+  if (saving.value) return
   editing.value = item || 'new'
   Object.assign(form, item ? {
     name: item.name, issuer: item.issuer, certificate_type: item.certificate_type, issued_at: item.issued_at,
@@ -50,32 +56,34 @@ function open(item?: Certificate) {
     credential_no: '', credential_url: '', asset_uuid: '', icon_asset_uuid: '', icon_name: '', icon_svg: '', is_public: true, sort_order: 0,
     translations: {}, content_language_mode: 'bilingual',
   })
-  Object.assign(english, form.translations.en || { name: '', issuer: '', description: '' })
+  Object.assign(english, { name: '', issuer: '', description: '' }, form.translations.en || { name: '', issuer: '', description: '' })
 }
 async function save() {
-  if (!editing.value) return
-  const payload = {
-    ...form,
-    translations: { ...form.translations, en: { ...english } },
-    asset_uuid: form.asset_uuid || null,
-    icon_asset_uuid: form.icon_asset_uuid || null,
-  }
-  if (editing.value === 'new') await adminApi.createCertificate(payload)
-  else await adminApi.updateCertificate(editing.value.uuid, payload)
-  editing.value = null
-  toast.show('证书已保存', 'success')
-  await load()
+  if (!editing.value || saving.value || ai.state.running) return
+  saving.value = true
+  try {
+    const payload = {
+      ...form,
+      translations: { ...form.translations, en: { ...english } },
+      asset_uuid: form.asset_uuid || null,
+      icon_asset_uuid: form.icon_asset_uuid || null,
+    }
+    if (editing.value === 'new') await adminApi.createCertificate(payload)
+    else await adminApi.updateCertificate(editing.value.uuid, payload)
+    editing.value = null
+    toast.show('证书已保存', 'success')
+    await load()
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : "保存失败，请重试", "error") }
+  finally { saving.value = false }
 }
+
 async function translateCertificate() {
+  const unchanged = ai.guard(() => ({ editing: editing.value, form, english }))
   translating.value = true
   try {
     const fromEnglish = editLocale.value === 'en'
     const content = fromEnglish ? english : { name: form.name, issuer: form.issuer, description: form.description }
-    let result: Record<string, unknown> | null = null
-    await readSse(await adminApi.aiStream('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: 'certificate', content }), (event) => {
-      if (event.type === 'result') result = event.data || null
-    })
-    if (!result) throw new Error('AI 未返回翻译结果')
+    const result = await ai.run('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: 'certificate', content, existing_translation: fromEnglish ? { name: form.name, issuer: form.issuer, description: form.description } : { ...english } }, unchanged)
     if (fromEnglish) Object.assign(form, result)
     else Object.assign(english, result)
     editLocale.value = fromEnglish ? 'zh-CN' : 'en'
@@ -97,6 +105,7 @@ onMounted(load)
 </script>
 
 <template>
+  <Teleport to="body"><aside v-if="ai.state.visible" class="ai-task-dock"><AiProgressPanel :task="ai.state" :body="ai.body.value" @cancel="ai.cancel" @close="ai.state.visible = false" /></aside></Teleport>
   <div class="admin-page">
     <header class="admin-page-heading">
       <div><span class="eyebrow">Credentials</span><h1>证书与荣誉</h1><p>管理奖学金证书、竞赛获奖、专利和课程认证，并关联项目展示。</p></div>
@@ -117,15 +126,18 @@ onMounted(load)
           <h2>{{ item.name }}</h2>
           <p>{{ item.issuer }} · {{ item.project_count }} 个关联项目 · {{ item.is_public ? '公开' : '私有' }}</p>
         </div>
+        <div class="row-actions">
         <RouterLink v-if="item.asset" :to="`/assets/${item.asset.uuid}`" target="_blank" title="预览"><Eye :size="17" /></RouterLink>
+        <AssetReplaceButton v-if="item.asset" :asset="item.asset" variant="icon" class="icon-button" @replaced="load" />
         <button class="icon-button" title="编辑" @click="open(item)"><Pencil :size="16" /></button>
         <button class="icon-button danger-text" title="删除" @click="remove(item)"><Trash2 :size="16" /></button>
+        </div>
       </article>
     </div>
     <Teleport to="body">
-      <div v-if="editing" class="modal-backdrop" @click.self="editing = null">
+      <div v-if="editing" class="modal-backdrop" @click.self="!saving && (editing = null)">
         <form class="modal-card modal-card--large" @submit.prevent="save">
-          <header><div><span class="eyebrow">Credential record</span><h2>{{ editing === 'new' ? '新建证书' : '编辑证书' }}</h2></div><button class="icon-button" type="button" @click="editing = null"><X :size="19" /></button></header>
+          <header><div><span class="eyebrow">Credential record</span><h2>{{ editing === 'new' ? '新建证书' : '编辑证书' }}</h2></div><button class="icon-button" type="button" @click="!saving && (editing = null)"><X :size="19" /></button></header>
           <div class="editor-language-bar">
             <div class="language-tabs"><button type="button" :class="{ active: editLocale === 'zh-CN' }" @click="editLocale = 'zh-CN'">中文</button><button type="button" :class="{ active: editLocale === 'en' }" @click="editLocale = 'en'">English</button></div>
             <label>内容语言<select v-model="form.content_language_mode"><option value="bilingual">中英双语</option><option value="single_zh">仅中文</option><option value="single_en">English only</option></select></label>
@@ -140,7 +152,7 @@ onMounted(load)
             <label class="span-2">{{ editLocale === 'en' ? 'Description' : '说明' }}<textarea v-if="editLocale === 'zh-CN'" v-model="form.description" rows="4" /><textarea v-else v-model="english.description" rows="4" /></label>
             <label>证书编号<input v-model="form.credential_no" /></label>
             <label>验证地址<input v-model="form.credential_url" type="url" /></label>
-            <label>证书文件 / 图片<select v-model="form.asset_uuid"><option value="">不关联文件</option><option v-for="asset in assets" :key="asset.uuid" :value="asset.uuid">{{ asset.display_name }}</option></select></label>
+            <label>证书文件 / 图片<AssetPickerField v-model="form.asset_uuid" :assets="assets" accept="image/*,application/pdf" title="选择证书或奖项文件" /></label>
             <div class="span-2">
               <IconPicker
                 v-model:icon-name="form.icon_name"
@@ -151,7 +163,7 @@ onMounted(load)
             </div>
           </div>
           <label class="check-label"><input v-model="form.is_public" type="checkbox" />允许公开展示</label>
-          <footer><button type="button" class="button button--outline" @click="editing = null">取消</button><button class="button button--dark">保存证书</button></footer>
+          <footer><button type="button" class="button button--outline" @click="!saving && (editing = null)">取消</button><button class="button button--dark" :disabled="saving || ai.state.running">保存证书</button></footer>
         </form>
       </div>
     </Teleport>

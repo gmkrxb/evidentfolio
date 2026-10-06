@@ -24,7 +24,7 @@ const messages: Record<keyof typeof zhCN, string> = {
   certificateFilters: 'Credential type filters', certificatePreview: 'credential preview', credentialNumber: 'Credential number', verifyAddress: 'Verify',
   noResumes: 'No public résumés', noResumesDescription: 'Published résumé versions will appear here.', availableVersions: 'Available versions', updatedAt: 'Updated',
   availability: 'Availability', backCredentials: 'Back to credentials', enlargeCertificate: 'Enlarge credential', clickEnlarge: 'Click to enlarge',
-  openFullPdf: 'Open full PDF', openCertificateFile: 'Open credential file', credentialInformation: 'Credential information', issuer: 'Issuer',
+  openFullPdf: 'Read full PDF', openCertificateFile: 'Open credential file', credentialInformation: 'Credential information', issuer: 'Issuer',
   issuedAt: 'Issued', verifyCertificate: 'Verify credential', relatedCaseStudies: 'Related case studies', relatedCaseStudiesDescription: 'Credentials are linked bidirectionally to the case studies that produced them.',
   noRelatedProjects: 'No public related projects', noRelatedProjectsDescription: 'Related projects will appear after they are published.', closePdf: 'Close PDF preview',
   assetPreview: 'Asset preview', assetPreviewDescription: 'Online preview of a project resource.', textLoadFailed: 'Text content failed to load',

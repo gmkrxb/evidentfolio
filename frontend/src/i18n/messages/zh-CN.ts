@@ -22,7 +22,7 @@ export default {
   certificateFilters: '证书类型筛选', certificatePreview: '证书预览', credentialNumber: '证书编号', verifyAddress: '验证地址',
   noResumes: '暂无公开简历', noResumesDescription: '公开版本准备好后会显示在这里。', availableVersions: '可用版本', updatedAt: '更新于',
   availability: '合作状态', backCredentials: '返回证书与荣誉', enlargeCertificate: '放大查看证书', clickEnlarge: '点击放大',
-  openFullPdf: '点击打开完整 PDF', openCertificateFile: '打开证书文件', credentialInformation: '证书信息', issuer: '颁发机构',
+  openFullPdf: '阅读完整 PDF', openCertificateFile: '打开证书文件', credentialInformation: '证书信息', issuer: '颁发机构',
   issuedAt: '获得时间', verifyCertificate: '验证证书', relatedCaseStudies: '关联作品集', relatedCaseStudiesDescription: '证书与产生它的项目保持双向关联，可直接回到完整案例研究。',
   noRelatedProjects: '暂无公开关联项目', noRelatedProjectsDescription: '关联项目公开后会显示在这里。', closePdf: '关闭 PDF 预览',
   assetPreview: '资源预览', assetPreviewDescription: '项目相关资源在线预览。', textLoadFailed: '文本内容加载失败',

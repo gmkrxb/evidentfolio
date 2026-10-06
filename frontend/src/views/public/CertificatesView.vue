@@ -6,6 +6,7 @@ import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
 import { publicApi } from '@/api/public'
 import { useAsyncState } from '@/composables/useAsync'
+import { useLocaleReload } from '@/composables/useLocaleReload'
 import { usePageAnalytics } from '@/composables/useAnalytics'
 import { useMeta } from '@/composables/useMeta'
 import { useSiteStore } from '@/stores/site'
@@ -13,10 +14,11 @@ import { useLocaleStore } from '@/stores/locale'
 import type { Certificate } from '@/types'
 import ConfiguredIcon from '@/components/icons/ConfiguredIcon.vue'
 import { certificateTypeLabel } from '@/utils/labels'
+import Marginalia from '@/components/public/Marginalia.vue'
 
 const site = useSiteStore()
 const locale = useLocaleStore()
-const state = useAsyncState<{ items: Certificate[] }>()
+const state = useAsyncState<{ items: Certificate[] }>({ keepPreviousData: true })
 const filter = ref('')
 const pageContent = computed(() => site.settings.page_content?.certificates || {
   eyebrow: 'Credentials',
@@ -39,6 +41,7 @@ function typeIcon(type: string) {
 function load() {
   return state.run((signal) => publicApi.certificates(signal))
 }
+useLocaleReload(load)
 onMounted(load)
 usePageAnalytics('certificates')
 useMeta({
@@ -53,6 +56,7 @@ useMeta({
       <span class="eyebrow">{{ pageContent.eyebrow }}</span>
       <h1>{{ pageContent.title }}</h1>
       <p>{{ pageContent.description }}</p>
+      <Marginalia start="philosophy" />
     </div>
   </section>
   <section class="certificates-page">
@@ -61,14 +65,14 @@ useMeta({
       <ErrorState v-else-if="state.error.value" :message="state.error.value" @retry="load" />
       <EmptyState v-else-if="!state.data.value?.items.length" :title="locale.t('noCertificates')" :description="locale.t('noCertificatesDescription')" />
       <template v-else>
-        <nav class="certificate-filters" :aria-label="locale.t('certificateFilters')">
-          <button v-for="item in types" :key="item.value" :class="{ active: filter === item.value }" @click="filter = item.value">
+        <nav v-segment class="certificate-filters" :aria-label="locale.t('certificateFilters')">
+          <button v-for="item in types" :key="item.value" :class="{ active: filter === item.value }" :aria-pressed="filter === item.value" @click="filter = item.value">
             {{ item.label }} <span>{{ item.count }}</span>
           </button>
         </nav>
         <div class="certificate-grid">
           <article v-for="(item, index) in items" :key="item.uuid" v-reveal="(index % 3) * 70">
-            <div class="certificate-card__visual">
+            <RouterLink class="certificate-card__visual" :to="locale.publicPath(`/certificates/${item.uuid}`)" :aria-label="item.name">
               <img v-if="item.asset?.thumbnail_url" :src="item.asset.thumbnail_url" :alt="`${item.name} ${locale.t('certificatePreview')}`" loading="lazy" />
               <span v-else-if="item.icon_asset || item.icon_name || item.icon_svg" class="certificate-card__icon">
                 <ConfiguredIcon
@@ -80,10 +84,10 @@ useMeta({
               </span>
               <component :is="typeIcon(item.certificate_type)" v-else :size="42" />
               <span>{{ certificateTypeLabel(item.certificate_type) }}</span>
-            </div>
+            </RouterLink>
             <div class="certificate-card__body">
               <span class="eyebrow">{{ item.issued_at }} · {{ item.issuer }}</span>
-              <h2>{{ item.name }}</h2>
+              <h2><RouterLink :to="locale.publicPath(`/certificates/${item.uuid}`)">{{ item.name }}</RouterLink></h2>
               <p>{{ item.description }}</p>
               <small v-if="item.credential_no">{{ locale.t('credentialNumber') }} {{ item.credential_no }}</small>
               <div>

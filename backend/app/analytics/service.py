@@ -12,6 +12,7 @@ from app.core.time import utcnow
 from app.models import AnalyticsEvent, Project, Visitor, VisitorSession
 from app.schemas.analytics import AnalyticsEventInput
 from app.security.network import masked_ip
+from app.security.privacy import encrypt_ip
 
 
 SCORE_RULES: dict[str, tuple[int, str]] = {
@@ -41,6 +42,7 @@ def get_or_create_visitor_session(
     raw_ip: str,
     user_agent: str,
     first_event: AnalyticsEventInput,
+    store_raw_ip: bool = False,
 ) -> tuple[Visitor, VisitorSession, bool]:
     now = utcnow()
     visitor = (
@@ -50,7 +52,7 @@ def get_or_create_visitor_session(
     )
     is_new = visitor is None
     if visitor is None:
-        location = resolve_ip_location(raw_ip)
+        location = resolve_ip_location(raw_ip) if store_raw_ip else {}
         visitor = Visitor(
             ip_hash=ip_digest,
             masked_ip=masked_ip(raw_ip),
@@ -63,6 +65,10 @@ def get_or_create_visitor_session(
         db.flush()
     else:
         visitor.last_seen_at = now
+
+    visitor.encrypted_ip = encrypt_ip(raw_ip) if store_raw_ip else None
+    visitor.masked_ip = masked_ip(raw_ip)
+    visitor.ip_hash = ip_digest
 
     session = (
         db.scalar(
@@ -79,6 +85,7 @@ def get_or_create_visitor_session(
         device, browser, operating_system = device_details(user_agent)
         session = VisitorSession(
             visitor_id=visitor.id,
+            encrypted_ip=encrypt_ip(raw_ip) if store_raw_ip else None,
             user_agent=user_agent[:2000],
             device_type=device,
             browser=browser,
@@ -96,6 +103,7 @@ def get_or_create_visitor_session(
         db.flush()
     else:
         session.last_seen_at = now
+        session.encrypted_ip = encrypt_ip(raw_ip) if store_raw_ip else None
     return visitor, session, is_new
 
 
@@ -134,6 +142,13 @@ def record_events(
     recalculate_score(db, session)
 
 
+def safe_seconds(value: object) -> int:
+    try:
+        return max(0, min(int(value), 600))
+    except (ValueError, TypeError, OverflowError):
+        return 0
+
+
 def recalculate_score(db: Session, session: VisitorSession) -> None:
     events = list(
         db.scalars(
@@ -155,7 +170,7 @@ def recalculate_score(db: Session, session: VisitorSession) -> None:
         score += points
         reasons.append({"rule": "查看多个项目", "count": project_count, "points": points})
     dwell_seconds = sum(
-        min(int(event.event_data.get("seconds", 0)), 600)
+        safe_seconds(event.event_data.get("seconds", 0))
         for event in events
         if event.event_type == "project_dwell"
     )
@@ -214,11 +229,13 @@ def overview(db: Session) -> dict:
         {"date": date, "views": views}
         for date, views in db.execute(
             select(func.date(AnalyticsEvent.timestamp), func.count(AnalyticsEvent.id))
-            .where(AnalyticsEvent.timestamp >= utcnow() - timedelta(days=30))
+            .where(AnalyticsEvent.timestamp >= utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29), AnalyticsEvent.event_type == "page_view")
             .group_by(func.date(AnalyticsEvent.timestamp))
             .order_by(func.date(AnalyticsEvent.timestamp))
         ).all()
     ]
+    counts_by_date = {item["date"]: item["views"] for item in trend}
+    trend = [{"date": (utcnow().date() - timedelta(days=offset)).isoformat(), "views": counts_by_date.get((utcnow().date() - timedelta(days=offset)).isoformat(), 0)} for offset in range(29, -1, -1)]
     distributions = {}
     for field_name, field in [
         ("devices", AnalyticsEvent.device_type),
@@ -230,6 +247,7 @@ def overview(db: Session) -> dict:
             {"name": name or "direct", "value": count}
             for name, count in db.execute(
                 select(field, func.count(AnalyticsEvent.id))
+                .where(AnalyticsEvent.event_type == "page_view")
                 .group_by(field)
                 .order_by(func.count(AnalyticsEvent.id).desc())
                 .limit(8)

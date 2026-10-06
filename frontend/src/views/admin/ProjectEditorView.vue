@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AssetPickerField from '@/components/admin/AssetPickerField.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   ArrowLeft,
@@ -15,7 +16,6 @@ import {
   Plus,
   Save,
   Trash2,
-  UploadCloud,
   Video,
   X,
 } from 'lucide-vue-next'
@@ -29,7 +29,9 @@ import { adminApi } from '@/api/admin'
 import { useToastStore } from '@/stores/toast'
 import type { Asset, AssetFolder, Certificate, Project, ProjectAlbum, ProjectContentLayoutItem, ProjectPayload, ProjectSection, TaxonomyItem } from '@/types'
 import { clonePlain } from '@/utils/clone'
-import { readSse } from '@/utils/sse'
+import { useAiTask } from '@/composables/useAiTask'
+import AiProgressPanel from '@/components/admin/AiProgressPanel.vue'
+const ai = useAiTask()
 
 const route = useRoute()
 const router = useRouter()
@@ -46,7 +48,6 @@ const assets = ref<Asset[]>([])
 const assetFolders = ref<AssetFolder[]>([])
 const existingProjectImages = ref<Asset[]>([])
 const certificates = ref<Certificate[]>([])
-const uploadingTarget = ref('')
 const previewSections = ref<Set<number>>(new Set())
 const pickerOpen = ref(false)
 const pickerSectionIndex = ref<number | null>(null)
@@ -157,23 +158,24 @@ async function translateProject() {
   error.value = ''
   try {
     const fromEnglish = editLocale.value === 'en'
-    const content = fromEnglish ? {
+    const englishContent = {
       ...clonePlain(englishProject), contributions: lines(englishProject.contributions), outcomes: lines(englishProject.outcomes),
       sections: form.sections.map((section) => ({ client_key: section.client_key, ...sectionEn(section) })),
       albums: form.albums.map((album) => ({ uuid: album.uuid, ...albumEn(album) })),
-    } : {
+      links: form.links.map((link) => ({ label: link.translations?.en?.label || '' })),
+    }
+    const chineseContent = {
       title: form.title, subtitle: form.subtitle, summary: form.summary, content: form.content,
       background: form.background, problem: form.problem, solution: form.solution, architecture: form.architecture,
       role: form.role, contributions: lines(listFields.contributions), outcomes: lines(listFields.outcomes),
       seo_title: form.seo_title, seo_description: form.seo_description,
       sections: form.sections.map((section) => ({ client_key: section.client_key, title: section.title, body: section.body })),
       albums: form.albums.map((album) => ({ uuid: album.uuid, title: album.title, description: album.description })),
+      links: form.links.map((link) => ({ label: link.label })),
     }
-    let result: Record<string, unknown> | null = null
-    await readSse(await adminApi.aiStream('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: 'project', content }), (event) => {
-      if (event.type === 'result') result = event.data || null
-    })
-    if (!result) throw new Error('AI 未返回翻译结果')
+    const content = fromEnglish ? englishContent : chineseContent
+    const unchanged = ai.guard(() => ({ form, englishProject, listFields }))
+    const result = await ai.run('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: 'project', content, existing_translation: fromEnglish ? chineseContent : englishContent }, unchanged)
     const translated = result as Record<string, any>
     if (fromEnglish) {
       for (const key of ['title', 'subtitle', 'summary', 'content', 'background', 'problem', 'solution', 'architecture', 'role', 'seo_title', 'seo_description'] as const) {
@@ -201,6 +203,12 @@ async function translateProject() {
         else Object.assign(albumEn(target), { title: item.title || '', description: item.description || '' })
       }
     }
+    for (const [index, link] of (translated.links || []).entries()) {
+      const target = form.links[index]
+      if (!target) continue
+      if (fromEnglish) target.label = link.label
+      else { target.translations ||= {}; target.translations.en = { ...target.translations.en, label: link.label } }
+    }
     editLocale.value = fromEnglish ? 'zh-CN' : 'en'
     dirty.value = true
     toast.show(fromEnglish ? '中文内容已生成，请检查后保存' : '英文内容已生成，请检查后保存', 'success')
@@ -215,7 +223,7 @@ function assignProject(item: Project) {
     tag_uuids: item.tags.map((tag) => tag.uuid),
     certificate_uuids: item.certificates.map((certificate) => certificate.uuid),
     cover_asset_uuid: item.cover_asset?.uuid || null,
-    links: item.links.map(({ label, url, link_type, sort_order }) => ({ label, url, link_type, sort_order })),
+    links: item.links.map(({ label, url, link_type, sort_order, translations }) => ({ label, url, link_type, sort_order, translations: clonePlain(translations || {}) })),
     sections: item.sections.map((section) => ({
       client_key: section.client_key || section.uuid || crypto.randomUUID(),
       title: section.title,
@@ -257,7 +265,7 @@ async function load() {
   error.value = ''
   try {
     const [categoryData, tagData, assetData, folderData, certificateData] = await Promise.all([
-      adminApi.categories(), adminApi.tags(), adminApi.assets({ page_size: 1000 }), adminApi.assetFolders(), adminApi.certificates(),
+      adminApi.categories(), adminApi.tags(), adminApi.allAssets(), adminApi.assetFolders(), adminApi.certificates(),
     ])
     categories.value = categoryData.items
     tags.value = tagData.items
@@ -367,7 +375,8 @@ function openSectionPicker(index: number) {
   pickerSectionIndex.value = index
   pickerOpen.value = true
 }
-function confirmSectionAssets(uuids: string[]) {
+function confirmSectionAssets(uuids: string[], items: Asset[]) {
+  mergeAssets(items)
   if (pickerSection.value) {
     const unique = [...new Set(uuids)]
     pickerSection.value.asset_uuids = pickerMultiple.value ? unique : unique.slice(0, 1)
@@ -379,52 +388,14 @@ function openAlbumPicker(index: number) {
   albumPickerIndex.value = index
   albumPickerOpen.value = true
 }
-function confirmAlbumAssets(uuids: string[]) {
+function confirmAlbumAssets(uuids: string[], items: Asset[]) {
+  mergeAssets(items)
   if (pickerAlbum.value) pickerAlbum.value.asset_uuids = [...new Set(uuids)]
   albumPickerOpen.value = false
   dirty.value = true
 }
-async function uploadFromAlbumPicker(files: File[], folderUuid: string | null = null) {
-  if (!pickerAlbum.value || !files.length) return
-  uploadingTarget.value = 'album-picker'
-  try {
-    for (const file of files) {
-      if (!file.type.startsWith('image/')) throw new Error('项目相册只能上传图片')
-      const asset = await adminApi.uploadAsset(file, true, 'project-album', folderUuid || '')
-      if (!assets.value.some((item) => item.uuid === asset.uuid)) assets.value.unshift(asset)
-      const selected = pickerAlbum.value.asset_uuids || (pickerAlbum.value.asset_uuids = [])
-      if (!selected.includes(asset.uuid)) {
-        selected.push(asset.uuid)
-      }
-    }
-    toast.show(`${files.length} 个图片已上传到资源库并加入相册`, 'success')
-    dirty.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '相册图片上传失败'
-  } finally {
-    uploadingTarget.value = ''
-  }
-}
-async function uploadFromPicker(files: File[], folderUuid: string | null = null) {
-  if (!pickerSection.value || !files.length) return
-  uploadingTarget.value = 'resource-picker'
-  try {
-    for (const file of files) {
-      const asset = await adminApi.uploadAsset(file, true, 'project-content', folderUuid || '')
-      if (!assets.value.some((item) => item.uuid === asset.uuid)) assets.value.unshift(asset)
-      if (pickerMultiple.value) {
-        if (!pickerSection.value.asset_uuids.includes(asset.uuid)) pickerSection.value.asset_uuids.push(asset.uuid)
-      } else {
-        pickerSection.value.asset_uuids = [asset.uuid]
-      }
-    }
-    toast.show(`${files.length} 个文件已上传到资源库并选中`, 'success')
-    dirty.value = true
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '文件上传失败'
-  } finally {
-    uploadingTarget.value = ''
-  }
+function mergeAssets(items: Asset[]) {
+  assets.value = [...items, ...assets.value.filter(asset => !items.some(item => item.uuid === asset.uuid))]
 }
 function fileSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`
@@ -480,40 +451,8 @@ function assetTypeLabel(asset: Asset) {
   if (asset.extension === '.zip') return '压缩附件'
   return asset.extension.replace('.', '').toUpperCase() || '文件'
 }
-async function uploadFiles(
-  event: Event,
-  target: ProjectSection | ProjectAlbum,
-  targetKey: string,
-  imagesOnly = false,
-) {
-  const input = event.target as HTMLInputElement
-  const files = Array.from(input.files || [])
-  if (!files.length) return
-  if (imagesOnly && files.some((file) => !file.type.startsWith('image/'))) {
-    error.value = '项目相册只接收图片；其他媒体请添加到内容区块'
-    input.value = ''
-    return
-  }
-  uploadingTarget.value = targetKey
-  try {
-    const targetUuids = 'asset_uuids' in target
-      ? (target.asset_uuids || (target.asset_uuids = []))
-      : []
-    for (const file of files) {
-      const asset = await adminApi.uploadAsset(file, true, 'project-content')
-      if (!assets.value.some((item) => item.uuid === asset.uuid)) assets.value.unshift(asset)
-      if (!targetUuids.includes(asset.uuid)) targetUuids.push(asset.uuid)
-    }
-    dirty.value = true
-    toast.show(`${files.length} 个文件已上传并加入内容`, 'success')
-  } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '文件上传失败'
-  } finally {
-    uploadingTarget.value = ''
-    input.value = ''
-  }
-}
 async function save(status?: Project['status']) {
+  if (saving.value || loading.value || translating.value) return
   saving.value = true
   error.value = ''
   try {
@@ -550,6 +489,7 @@ onMounted(load)
 </script>
 
 <template>
+  <Teleport to="body"><aside v-if="ai.state.visible" class="ai-task-dock"><AiProgressPanel :task="ai.state" :body="ai.body.value" @cancel="ai.cancel" @close="ai.state.visible = false" /></aside></Teleport>
   <div class="admin-page project-editor">
     <header class="admin-page-heading admin-page-heading--sticky">
       <div>
@@ -559,8 +499,8 @@ onMounted(load)
       <div class="editor-actions">
         <button type="button" class="button button--outline" @click="sortModalOpen = true"><GripVertical :size="16" />排序</button>
         <RouterLink v-if="!isNew" class="button button--outline" :to="`/projects/${route.params.uuid}`" target="_blank"><Eye :size="16" />预览</RouterLink>
-        <button class="button button--outline" :disabled="saving" @click="save()">保存草稿</button>
-        <button class="button button--dark" :disabled="saving" @click="save('published')"><Save :size="16" />{{ saving ? '保存中…' : '保存并发布' }}</button>
+        <button class="button button--outline" :disabled="saving || loading || translating" @click="save()">保存草稿</button>
+        <button class="button button--dark" :disabled="saving || loading || translating" @click="save('published')"><Save :size="16" />{{ saving ? '保存中…' : '保存并发布' }}</button>
       </div>
     </header>
     <LoadingState v-if="loading" :rows="10" />
@@ -634,7 +574,7 @@ onMounted(load)
           <div class="form-section__heading"><span>04</span><div><h2>外部链接</h2><p>在线演示、代码仓库和其他相关页面。</p></div><button type="button" class="button button--outline button--small" @click="addLink"><Plus :size="15" />添加链接</button></div>
           <div v-if="!form.links.length" class="inline-empty">尚未添加链接</div>
           <div v-for="(link, index) in form.links" :key="index" class="repeat-row repeat-row--link">
-            <input v-model="link.label" required placeholder="链接名称" />
+            <input v-if="editLocale === 'zh-CN'" v-model="link.label" required placeholder="链接名称" /><input v-else :value="link.translations?.en?.label || ''" placeholder="Link label" @input="link.translations = { ...link.translations, en: { ...link.translations?.en, label: ($event.target as HTMLInputElement).value } }; dirty = true" />
             <input v-model="link.url" required type="url" placeholder="https://..." />
             <select v-model="link.link_type"><option value="demo">在线演示</option><option value="repository">代码仓库</option><option value="document">文档</option><option value="other">其他</option></select>
             <button type="button" class="icon-button danger-text" aria-label="删除链接" @click="form.links.splice(index, 1)"><Trash2 :size="17" /></button>
@@ -754,36 +694,7 @@ onMounted(load)
                 </div>
                 <div v-else class="inline-empty">尚未关联资源。可从附件库选择，或直接上传新文件。</div>
               </div>
-              <div v-else-if="section.display_mode !== 'text'" class="inline-media-picker inline-media-picker--legacy">
-                <div class="inline-media-picker__actions">
-                  <span>选择资源，或从这里批量上传</span>
-                  <label class="button button--outline button--small">
-                    <UploadCloud :size="15" />
-                    {{ uploadingTarget === `section-${index}` ? '上传中…' : '批量上传' }}
-                    <input
-                      type="file"
-                      :accept="sectionAccept(section)"
-                      multiple
-                      :disabled="Boolean(uploadingTarget)"
-                      @change="uploadFiles($event, section, `section-${index}`)"
-                    />
-                  </label>
-                </div>
-                <div class="media-choice-grid">
-                  <label v-for="asset in sectionAssetOptions(section)" :key="asset.uuid" :class="{ selected: mediaSelection(section).includes(asset.uuid) }">
-                    <input v-model="section.asset_uuids" type="checkbox" :value="asset.uuid" />
-                    <img v-if="asset.mime_type.startsWith('image/')" :src="asset.thumbnail_url || asset.content_url" :alt="asset.display_name" />
-                    <span v-else class="media-choice-grid__file">
-                      <Video v-if="asset.mime_type.startsWith('video/')" :size="24" />
-                      <Music2 v-else-if="asset.mime_type.startsWith('audio/')" :size="24" />
-                      <FileArchive v-else-if="asset.extension === '.zip'" :size="24" />
-                      <FileText v-else :size="24" />
-                      <small>{{ assetTypeLabel(asset) }}</small>
-                    </span>
-                    <span>{{ asset.display_name }}</span>
-                  </label>
-                </div>
-              </div>
+
             </template>
           </div>
         </section>
@@ -837,7 +748,7 @@ onMounted(load)
         </section>
         <section class="form-section">
           <h2>项目封面</h2>
-          <select v-model="form.cover_asset_uuid"><option :value="null">自动组合项目媒体</option><option v-for="asset in imageAssets" :key="asset.uuid" :value="asset.uuid">{{ asset.display_name }}</option></select>
+          <AssetPickerField v-model="form.cover_asset_uuid" :assets="imageAssets" accept="image/*" title="选择项目封面" placeholder="自动组合项目媒体" @picked="mergeAssets" />
           <img v-if="form.cover_asset_uuid" class="cover-preview" :src="assets.find((item) => item.uuid === form.cover_asset_uuid)?.thumbnail_url || ''" alt="当前项目封面预览" />
           <div v-else-if="autoCoverPreview.length" class="cover-collage-preview">
             <img v-for="asset in autoCoverPreview" :key="asset.uuid" :src="asset.thumbnail_url || asset.content_url" :alt="asset.display_name" />
@@ -876,11 +787,9 @@ onMounted(load)
       :selected="pickerSection?.asset_uuids || []"
       :multiple="pickerMultiple"
       :accept="pickerSection ? sectionAccept(pickerSection) : '*/*'"
-      :uploading="uploadingTarget === 'resource-picker'"
       title="选择章节资源"
       @close="pickerOpen = false"
       @confirm="confirmSectionAssets"
-      @upload="uploadFromPicker"
     />
     <ResourcePickerModal
       :open="albumPickerOpen"
@@ -889,11 +798,9 @@ onMounted(load)
       :selected="pickerAlbum?.asset_uuids || []"
       multiple
       accept="image/*"
-      :uploading="uploadingTarget === 'album-picker'"
       title="选择相册图片"
       @close="albumPickerOpen = false"
       @confirm="confirmAlbumAssets"
-      @upload="uploadFromAlbumPicker"
     />
     <Teleport to="body">
       <Transition name="modal">

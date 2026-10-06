@@ -13,6 +13,7 @@ from app.core.time import utcnow
 from app.models import AdminSession, AdminUser, LoginLog, SiteSetting
 from app.schemas.auth import InitializeRequest, LoginRequest
 from app.security.network import client_ip, ip_hash
+from app.services.poetry import with_default_poetry
 from app.services.auth import (
     create_session,
     digest,
@@ -111,7 +112,7 @@ def initialize(
     if settings is None:
         settings = SiteSetting(id=1, data={})
         db.add(settings)
-    settings.data = {**(settings.data or {}), **initial_site_data(payload)}
+    settings.data, _ = with_default_poetry({**(settings.data or {}), **initial_site_data(payload)})
     raw_token, admin_session = create_session(
         db, user, ip_hash(client_ip(request)), request.headers.get("user-agent", "")
     )

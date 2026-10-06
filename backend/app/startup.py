@@ -5,6 +5,9 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
 from app.core.config import get_settings
 
 
@@ -56,15 +59,27 @@ def _check_writable(path: Path) -> None:
     marker.unlink(missing_ok=True)
 
 
-def preflight() -> None:
+def _migration_heads() -> set[str]:
+    backend_root = Path(__file__).resolve().parents[1]
+    config = Config(str(backend_root / "alembic.ini"))
+    config.set_main_option("script_location", str(backend_root / "alembic"))
+    return set(ScriptDirectory.from_config(config).get_heads())
+
+
+def preflight(*, skip_backup: bool = False) -> None:
     settings = get_settings()
     settings.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     _check_writable(settings.DATABASE_PATH.parent)
     _check_writable(settings.UPLOAD_ROOT)
     if settings.DATABASE_PATH.exists():
         revision = _check_database(settings.DATABASE_PATH)
-        backup = _backup_before_migration(settings.DATABASE_PATH, revision)
-        print(f"Database preflight passed; migration backup: {backup}")
+        if revision in _migration_heads():
+            print(f"数据库检查通过，已是最新版本：{revision}")
+        elif skip_backup:
+            print(f"数据库检查通过；按本次更新参数跳过备份，当前版本：{revision}")
+        else:
+            backup = _backup_before_migration(settings.DATABASE_PATH, revision)
+            print(f"Database preflight passed; migration backup: {backup}")
     else:
         print("No database found; Alembic will create an empty database.")
 
@@ -74,6 +89,8 @@ def postflight() -> None:
     if not settings.DATABASE_PATH.exists():
         raise RuntimeError("Database migration completed without creating the configured database")
     revision = _check_database(settings.DATABASE_PATH, foreign_keys=True)
+    if revision not in _migration_heads():
+        raise RuntimeError(f"数据库迁移未完成，当前版本：{revision}")
     ffmpeg = Path(settings.VIDEO_FFMPEG_PATH)
     if not ffmpeg.is_file() and shutil.which(settings.VIDEO_FFMPEG_PATH) is None:
         raise RuntimeError(f"Configured ffmpeg executable was not found: {ffmpeg}")
@@ -83,8 +100,9 @@ def postflight() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="EvidentFolio startup checks")
     parser.add_argument("phase", choices=("preflight", "postflight"))
+    parser.add_argument("--skip-backup", action="store_true", help="仅本次迁移前检查跳过数据库备份")
     args = parser.parse_args()
-    preflight() if args.phase == "preflight" else postflight()
+    preflight(skip_backup=args.skip_backup) if args.phase == "preflight" else postflight()
 
 
 if __name__ == "__main__":

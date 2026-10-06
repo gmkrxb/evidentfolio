@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ThemeControl from '@/components/ui/ThemeControl.vue'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -101,7 +102,8 @@ function switchLanguage() {
           <strong>{{ currentLabel }}</strong>
         </div>
         <div class="admin-user">
-          <button type="button" class="public-language-switch" @click="switchLanguage">{{ locale.isEnglish ? '中文' : 'EN' }}</button>
+        <ThemeControl />
+          <button type="button" class="admin-language-switch" @click="switchLanguage">{{ locale.isEnglish ? '中文' : 'EN' }}</button>
           <span>{{ auth.user?.display_name }}</span>
           <span class="admin-avatar">{{ auth.user?.display_name?.slice(0, 1) }}</span>
         </div>

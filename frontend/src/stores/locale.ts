@@ -1,3 +1,4 @@
+import { readPreference, writePreference } from '@/utils/storage'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { messages, type MessageKey } from '@/i18n'
@@ -5,13 +6,15 @@ import { messages, type MessageKey } from '@/i18n'
 export type AppLocale = 'zh-CN' | 'en'
 
 export const useLocaleStore = defineStore('locale', () => {
-  const saved = localStorage.getItem('portfolio_locale') as AppLocale | null
+  const preference = readPreference('portfolio_locale')
+  const saved = preference === 'en' || preference === 'zh-CN' ? preference : null
   const language = ref<AppLocale>(saved || (navigator.language.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en'))
   const isEnglish = computed(() => language.value === 'en')
+  const switching = ref(false)
 
   function setLanguage(next: AppLocale) {
     language.value = next
-    localStorage.setItem('portfolio_locale', next)
+    writePreference('portfolio_locale', next)
     document.documentElement.lang = next
   }
   function t(key: MessageKey) {
@@ -26,5 +29,5 @@ export const useLocaleStore = defineStore('locale', () => {
   }
 
   document.documentElement.lang = language.value
-  return { language, isEnglish, setLanguage, syncPath, publicPath, t }
+  return { language, isEnglish, switching, setLanguage, syncPath, publicPath, t }
 })

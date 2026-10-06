@@ -1,3 +1,4 @@
+import { readPreference, writePreference } from '@/utils/storage'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '@/api/admin'
@@ -45,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await authApi.initialize(payload)
       user.value = result.user
       checked.value = true
-      localStorage.setItem('evidentfolio_setup_complete', '1')
+      writePreference('evidentfolio_setup_complete', '1')
     } finally {
       loading.value = false
     }

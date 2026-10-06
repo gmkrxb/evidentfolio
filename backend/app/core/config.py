@@ -47,13 +47,20 @@ class Settings(BaseModel):
     SESSION_EXPIRE_HOURS: int = 24
     PUBLIC_BASE_URL: str = ""
     ANALYTICS_ENABLED: bool = True
-    RAW_IP_STORAGE_ENABLED: bool = False
+    RAW_IP_STORAGE_ENABLED: bool = True
     ANALYTICS_RETENTION_DAYS: int = 365
     THUMBNAIL_WIDTHS: list[int] = [480, 960, 1440]
     VIDEO_FFMPEG_PATH: str = "ffmpeg"
     SECURE_COOKIES: bool = False
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_WINDOW_MINUTES: int = 15
+    # 资源访问票据：短时有效、带签名；按访客 IP 限流，防止被恶意刷流量
+    ASSET_TICKET_TTL_SECONDS: int = 120
+    ASSET_STREAM_TTL_SECONDS: int = 1800
+    ASSET_VIEW_TICKETS_PER_10_MIN: int = 300
+    ASSET_DOWNLOADS_PER_HOUR: int = 30
+    ASSET_CONTENT_REQUESTS_PER_MIN: int = 600
+    ASSET_ENCRYPT_MAX_BYTES: int = 200 * 1024 * 1024
     IP_GEOLOCATION_ENABLED: bool = True
     IP_GEOLOCATION_API_URL: str = "https://ipwho.is/{ip}"
     IP_GEOLOCATION_TIMEOUT_SECONDS: float = 2.5

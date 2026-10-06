@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { Activity, ArrowUpRight, BriefcaseBusiness, Eye, FileText, FolderArchive, UsersRound } from 'lucide-vue-next'
 import LoadingState from '@/components/ui/LoadingState.vue'
+import VisitChart from '@/components/admin/VisitChart.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import { adminApi } from '@/api/admin'
 import { useAsyncState } from '@/composables/useAsync'
@@ -55,14 +56,7 @@ onMounted(load)
             <div><span class="eyebrow">Last 30 days</span><h2>访问趋势</h2></div>
             <RouterLink to="/admin/analytics">查看完整分析</RouterLink>
           </div>
-          <div v-if="trend.length" class="trend-chart">
-            <div v-for="item in trend" :key="item.date" class="trend-bar">
-              <span :style="{ height: `${Math.max(5, (item.views / maxTrend) * 100)}%` }" />
-              <small>{{ item.date.slice(5) }}</small>
-              <em>{{ item.views }}</em>
-            </div>
-          </div>
-          <div v-else class="chart-empty">还没有访问趋势数据</div>
+          <VisitChart :points="trend" />
         </section>
         <section class="admin-panel">
           <div class="admin-panel__heading"><div><span class="eyebrow">Signals</span><h2>关注行为</h2></div><Activity :size="20" /></div>
@@ -73,7 +67,7 @@ onMounted(load)
         <section class="admin-panel">
           <div class="admin-panel__heading"><div><span class="eyebrow">Today</span><h2>今日摘要</h2></div><UsersRound :size="20" /></div>
           <div class="today-metric"><strong>{{ Number(analytics.today_views || 0) }}</strong><span>页面访问</span></div>
-          <p class="panel-note">访问分析只生成匿名的关注度信号，不识别访客真实身份，也不推断录用意向。</p>
+          <p class="panel-note">访问分析仅包含已同意的记录。原始 IP 单独征求同意，时间按 UTC 统计。</p>
         </section>
       </div>
     </template>

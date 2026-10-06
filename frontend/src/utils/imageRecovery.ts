@@ -19,7 +19,9 @@ export function installImageRecovery(): () => void {
     image.classList.add('is-retrying')
 
     const jitter = Math.floor(Math.random() * 350)
+    const failedSrc = image.src
     window.setTimeout(() => {
+      if (!image.isConnected || image.src !== failedSrc) return
       const retryUrl = new URL(original, window.location.href)
       retryUrl.searchParams.set('_retry', `${Date.now()}-${retries + 1}`)
       image.src = retryUrl.toString()
@@ -30,6 +32,8 @@ export function installImageRecovery(): () => void {
     const image = event.target
     if (!(image instanceof HTMLImageElement)) return
     image.classList.remove('is-retrying', 'has-load-error')
+    delete image.dataset.originalSrc
+    delete image.dataset.retryCount
   }
 
   document.addEventListener('error', onError, true)

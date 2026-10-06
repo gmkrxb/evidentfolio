@@ -3,10 +3,11 @@ from __future__ import annotations
 import re
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from sqlalchemy import delete, func, or_, select
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile, Query
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
+from starlette.datastructures import Headers
 
 from app.analytics.service import overview
 from app.api.audit import write_audit
@@ -19,6 +20,7 @@ from app.file_processing.files import (
     FileValidationError,
     delete_asset_files,
     save_and_process,
+    absolute_storage_path,
 )
 from app.models import (
     AdminUser,
@@ -40,6 +42,7 @@ from app.models import (
 from app.repositories.projects import ProjectRepository
 from app.schemas.assets import (
     AssetPatch,
+    AssetLibraryReplacement,
     AssetBatchMoveInput,
     AssetFolderInput,
     CertificateInput,
@@ -50,9 +53,17 @@ from app.schemas.assets import (
 from app.schemas.projects import ProjectInput, ProjectListQuery
 from app.services.projects import ProjectService
 from app.services.serializers import asset_dict, certificate_dict, project_dict, resume_dict
+from app.security.privacy import reveal_ip
 from app.security.svg import SvgValidationError, sanitize_svg
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def validated_integer(value) -> int:
+    try:
+        return int(value)
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise ApiError(422, "VALIDATION_ERROR", "排序值必须是整数") from exc
 
 
 def slugify(value: str) -> str:
@@ -206,8 +217,8 @@ def list_projects(
     request: Request,
     q: str = "",
     status: str | None = None,
-    page: int = 1,
-    page_size: int = 50,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _: AdminUser = Depends(require_admin),
 ) -> dict:
@@ -365,7 +376,7 @@ def create_category(
         name=name,
         slug=str(payload.get("slug") or slugify(name)),
         description=str(payload.get("description", "")),
-        sort_order=int(payload.get("sort_order", 0)),
+        sort_order=validated_integer(payload.get("sort_order", 0)),
         translations=payload.get("translations") or {},
     )
     db.add(item)
@@ -390,12 +401,18 @@ def update_category(
     if not item:
         raise ApiError(404, "CATEGORY_NOT_FOUND", "分类不存在")
     item.name = str(payload.get("name", item.name)).strip()
+    if not item.name:
+        raise ApiError(422, "VALIDATION_ERROR", "分类名称不能为空")
     item.slug = str(payload.get("slug") or slugify(item.name))
     item.description = str(payload.get("description", item.description))
-    item.sort_order = int(payload.get("sort_order", item.sort_order))
+    item.sort_order = validated_integer(payload.get("sort_order", item.sort_order))
     item.translations = payload.get("translations", item.translations) or {}
     write_audit(db, request, user, "category.update", "category", item.uuid)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ApiError(409, "CATEGORY_EXISTS", "分类名称或标识已存在") from exc
     return ok(request, {"uuid": item.uuid}, "分类已保存")
 
 
@@ -480,11 +497,17 @@ def update_tag(
     if not item:
         raise ApiError(404, "TAG_NOT_FOUND", "标签不存在")
     item.name = str(payload.get("name", item.name)).strip()
+    if not item.name:
+        raise ApiError(422, "VALIDATION_ERROR", "标签名称不能为空")
     item.slug = str(payload.get("slug") or slugify(item.name))
     item.color = str(payload.get("color", item.color))
     item.translations = payload.get("translations", item.translations) or {}
     write_audit(db, request, user, "tag.update", "tag", item.uuid)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ApiError(409, "TAG_EXISTS", "标签名称或标识已存在") from exc
     return ok(request, {"uuid": item.uuid}, "标签已保存")
 
 
@@ -544,8 +567,8 @@ def assets(
     q: str = "",
     category: str | None = None,
     folder: str | None = None,
-    page: int = 1,
-    page_size: int = 50,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _: AdminUser = Depends(require_admin),
 ) -> dict:
@@ -839,6 +862,70 @@ async def batch_upload(
     return ok(request, {"items": results}, "批量上传已处理")
 
 
+@router.post("/assets/{asset_uuid}/replace")
+async def replace_asset(
+    asset_uuid: str,
+    request: Request,
+    file: UploadFile = File(...),
+    expected_sha256: str = Form(...),
+    db: Session = Depends(get_db),
+    user: AdminUser = Depends(require_csrf),
+) -> dict:
+    asset = db.scalar(select(Asset).where(Asset.uuid == asset_uuid))
+    if not asset:
+        raise ApiError(404, "ASSET_NOT_FOUND", "资源不存在")
+    if asset.sha256 != expected_sha256:
+        raise ApiError(409, "ASSET_CHANGED", "附件已被更新，请刷新后重试")
+    old_path, old_thumbnail, old_mime = asset.storage_path, asset.thumbnail_path, asset.mime_type
+    try:
+        processed = await save_and_process(file)
+    except FileValidationError as exc:
+        raise ApiError(422, "FILE_VALIDATION_FAILED", str(exc)) from exc
+    try:
+        if processed.mime_type != old_mime:
+            raise ApiError(422, "FILE_TYPE_CHANGED", "请选择相同类型的新文件，避免已关联内容无法预览")
+        if processed.sha256 == expected_sha256:
+            raise ApiError(409, "UNCHANGED_FILE", "新文件与当前版本内容相同")
+        values = {key: value for key, value in processed.__dict__.items() if key != "display_name"}
+        # 乐观锁避免并发替换覆盖他人的版本。
+        changed = db.execute(update(Asset).where(Asset.uuid == asset_uuid, Asset.sha256 == expected_sha256).values(**values, version=Asset.version + 1))
+        if changed.rowcount != 1:
+            raise ApiError(409, "ASSET_CHANGED", "附件已被更新，请刷新后重试")
+        write_audit(db, request, user, "asset.replace", "asset", asset_uuid, {"previous_sha256": expected_sha256, "sha256": processed.sha256})
+        db.commit()
+    except Exception:
+        db.rollback()
+        delete_asset_files(processed.storage_path, processed.thumbnail_path)
+        raise
+    db.refresh(asset)
+    delete_asset_files(old_path, old_thumbnail)
+    return ok(request, asset_dict(asset), "附件已替换，所有关联内容使用新版本")
+
+
+@router.post("/assets/{asset_uuid}/replace-from-library")
+async def replace_asset_from_library(
+    asset_uuid: str,
+    payload: AssetLibraryReplacement,
+    request: Request,
+    db: Session = Depends(get_db),
+    user: AdminUser = Depends(require_csrf),
+) -> dict:
+    if payload.source_uuid == asset_uuid:
+        raise ApiError(422, "SAME_ASSET", "请选择其他文件作为新版本")
+    source = db.scalar(select(Asset).where(Asset.uuid == payload.source_uuid))
+    if not source:
+        raise ApiError(404, "ASSET_NOT_FOUND", "所选资源不存在")
+    if source.sha256 != payload.source_sha256:
+        raise ApiError(409, "ASSET_CHANGED", "所选文件已更新，请重新选择")
+    path = absolute_storage_path(source.storage_path)
+    if not path.is_file():
+        raise ApiError(404, "ASSET_FILE_NOT_FOUND", "所选资源的文件不存在")
+    # 独立保存内容，删除或替换源资源不会破坏目标附件。
+    with path.open("rb") as stream:
+        upload = UploadFile(file=stream, filename=source.original_name, headers=Headers({"content-type": source.mime_type}))
+        return await replace_asset(asset_uuid, request, upload, payload.expected_sha256, db, user)
+
+
 @router.put("/assets/{asset_uuid}")
 def update_asset(
     asset_uuid: str,
@@ -854,6 +941,8 @@ def update_asset(
     asset.description = payload.description
     asset.logical_group = payload.logical_group
     asset.is_public = payload.is_public
+    if payload.access_mode:
+        asset.access_mode = payload.access_mode
     asset.translations = payload.translations
     if payload.folder_uuid:
         folder = db.scalar(
@@ -962,8 +1051,8 @@ def create_resume(
     if not asset or asset.mime_type != "application/pdf":
         raise ApiError(422, "INVALID_RESUME_ASSET", "请选择有效的 PDF 资源")
     if payload.is_default:
-        for existing in db.scalars(select(Resume).where(Resume.is_default.is_(True))):
-            existing.is_default = False
+        # 先执行取消默认的写操作，避免并发请求同时留下默认标记。
+        db.execute(update(Resume).where(Resume.is_default.is_(True)).values(is_default=False))
     asset.category = "resumes"
     asset.is_public = payload.is_public
     item = Resume(
@@ -998,10 +1087,9 @@ def update_resume(
     if not asset or asset.mime_type != "application/pdf":
         raise ApiError(422, "INVALID_RESUME_ASSET", "请选择有效的 PDF 资源")
     if payload.is_default:
-        for existing in db.scalars(
-            select(Resume).where(Resume.is_default.is_(True), Resume.id != item.id)
-        ):
-            existing.is_default = False
+        db.execute(update(Resume).where(
+            Resume.is_default.is_(True), Resume.id != item.id,
+        ).values(is_default=False))
     item.name = payload.name
     item.language = payload.language
     item.resume_type = payload.resume_type
@@ -1250,6 +1338,7 @@ def update_site_settings(
         "analytics_enabled",
         "analytics_retention_days",
         "analytics_notice_enabled",
+        "music_enabled",
         "max_upload_size",
         "allowed_file_types",
         "featured_project_count",
@@ -1292,8 +1381,8 @@ def analytics_overview(
 @router.get("/analytics/visitors")
 def analytics_visitors(
     request: Request,
-    page: int = 1,
-    page_size: int = 30,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(30, ge=1, le=100),
     db: Session = Depends(get_db),
     _: AdminUser = Depends(require_admin),
 ) -> dict:
@@ -1313,6 +1402,8 @@ def analytics_visitors(
                 {
                     "uuid": item.uuid,
                     "visitor_uuid": item.visitor.uuid,
+                    "ip_address": reveal_ip(item.encrypted_ip),
+                    "masked_ip": item.visitor.masked_ip,
                     "started_at": item.started_at,
                     "last_seen_at": item.last_seen_at,
                     "device_type": item.device_type,
@@ -1370,6 +1461,7 @@ def analytics_session(
             "session": {
                 "uuid": session.uuid,
                 "visitor_uuid": session.visitor.uuid,
+                "ip_address": reveal_ip(session.encrypted_ip),
                 "started_at": session.started_at,
                 "last_seen_at": session.last_seen_at,
                 "device_type": session.device_type,
@@ -1437,8 +1529,8 @@ def cleanup_analytics(
 @router.get("/audit-logs")
 def audit_logs(
     request: Request,
-    page: int = 1,
-    page_size: int = 50,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _: AdminUser = Depends(require_admin),
 ) -> dict:

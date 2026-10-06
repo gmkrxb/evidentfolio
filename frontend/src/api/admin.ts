@@ -76,6 +76,14 @@ export const adminApi = {
 
   assets: (params: Record<string, unknown> = {}) =>
     api.get<{ items: Asset[]; pagination: Pagination }>('/admin/assets', params),
+  allAssets: async (params: Record<string, unknown> = {}): Promise<{ items: Asset[] }> => {
+    const items: Asset[] = []
+    for (let page = 1; ; page += 1) {
+      const result = await api.get<{ items: Asset[]; pagination: Pagination }>('/admin/assets', { ...params, page, page_size: 100 })
+      items.push(...result.items)
+      if (!result.items.length || items.length >= result.pagination.total) return { items }
+    }
+  },
   assetFolders: () => api.get<{ items: AssetFolder[] }>('/admin/asset-folders'),
   createAssetFolder: (payload: Record<string, unknown>) =>
     api.post<AssetFolder>('/admin/asset-folders', payload),
@@ -95,6 +103,15 @@ export const adminApi = {
   assetDependencies: (uuid: string) =>
     api.get<AssetDependencies>(`/admin/assets/${uuid}/dependencies`),
   deleteAsset: (uuid: string) => api.delete(`/admin/assets/${uuid}`),
+  replaceAsset: (asset: Asset, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('expected_sha256', asset.sha256)
+    return api.upload<Asset>(`/admin/assets/${asset.uuid}/replace`, form)
+  },
+  replaceAssetFromLibrary: (asset: Asset, source: Asset) => api.post<Asset>(`/admin/assets/${asset.uuid}/replace-from-library`, {
+    source_uuid: source.uuid, expected_sha256: asset.sha256, source_sha256: source.sha256,
+  }),
   associateAsset: (assetUuid: string, projectUuid: string, payload: Record<string, unknown>) =>
     api.post(`/admin/assets/${assetUuid}/projects/${projectUuid}`, payload),
   uploadAsset: (file: File, isPublic = true, logicalGroup = '', folderUuid = '') => {
@@ -126,9 +143,9 @@ export const adminApi = {
   session: (uuid: string) => api.get<Record<string, unknown>>(`/admin/analytics/sessions/${uuid}`),
   cleanupAnalytics: (days: number) => api.delete<Record<string, number>>('/admin/analytics', { days }),
   auditLogs: () => api.get<{ items: Array<Record<string, unknown>> }>('/admin/audit-logs'),
-  aiConfig: () => api.get<{ base_url: string; model: string; enabled: boolean; has_api_key: boolean }>('/admin/ai/config'),
+  aiConfig: () => api.get<{ base_url: string; model: string; enabled: boolean; has_api_key: boolean; max_context_chars: number }>('/admin/ai/config'),
   updateAiConfig: (payload: Record<string, unknown>) => api.put('/admin/ai/config', payload),
   aiModels: (payload: Record<string, unknown>) => api.post<{ items: Array<{ id: string; owned_by: string }> }>('/admin/ai/models', payload),
-  aiStream: (path: 'translate' | 'resume/parse', payload: Record<string, unknown>) => api.stream(`/admin/ai/${path}/stream`, payload),
+  aiStream: (path: 'translate' | 'resume/parse', payload: Record<string, unknown>, signal?: AbortSignal) => api.stream(`/admin/ai/${path}/stream`, payload, signal),
   applyAiResume: (result: Record<string, unknown>) => api.post<{ projects_created: number; certificates_created: number }>('/admin/ai/resume/apply', { result }),
 }

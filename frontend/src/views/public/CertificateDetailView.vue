@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, ArrowUpRight, BadgeCheck, CalendarDays, ExternalLink, FileText, Maximize2, X } from 'lucide-vue-next'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ArrowLeft, ArrowUpRight, BadgeCheck, CalendarDays, Download, ExternalLink, Eye, FileText, Maximize2, X } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import ConfiguredIcon from '@/components/icons/ConfiguredIcon.vue'
 import ImageLightbox from '@/components/content/ImageLightbox.vue'
@@ -10,19 +10,24 @@ import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
 import { publicApi } from '@/api/public'
 import { useAsyncState } from '@/composables/useAsync'
-import { track } from '@/composables/useAnalytics'
+import { useLocaleReload } from '@/composables/useLocaleReload'
+import { track, usePageAnalytics } from '@/composables/useAnalytics'
 import { useMeta } from '@/composables/useMeta'
 import { useSiteStore } from '@/stores/site'
 import { useLocaleStore } from '@/stores/locale'
 import type { ProjectAsset } from '@/types'
 import { certificateTypeLabel } from '@/utils/labels'
+import AssetMedia from '@/components/content/AssetMedia.vue'
+import { downloadAsset } from '@/utils/protectedAsset'
 
 const route = useRoute()
 const site = useSiteStore()
 const locale = useLocaleStore()
-const state = useAsyncState<Awaited<ReturnType<typeof publicApi.certificate>>>()
+const state = useAsyncState<Awaited<ReturnType<typeof publicApi.certificate>>>({ keepPreviousData: true })
 const lightboxOpen = ref(false)
 const pdfOpen = ref(false)
+const pdfDialog = ref<HTMLElement>()
+let pdfTrigger: HTMLElement | null = null
 const title = computed(() => `${state.data.value?.name || locale.t('credentials')}｜${site.settings.site_name || 'Portfolio'}`)
 const description = computed(() => state.data.value?.description || '')
 const lightboxItems = computed<ProjectAsset[]>(() => {
@@ -49,14 +54,33 @@ async function load() {
     })
   }
 }
-function downloadCertificate() {
+const assetProtected = computed(() => Boolean(state.data.value?.asset?.protected))
+async function downloadCertificate() {
   const asset = state.data.value?.asset
-  if (asset) window.location.href = asset.download_url
+  if (asset && !asset.protected) await downloadAsset(asset).catch(() => undefined)
 }
 watch(() => route.params.uuid, load)
-watch(pdfOpen, (value) => document.body.classList.toggle('is-locked', value))
-onMounted(load)
-onBeforeUnmount(() => document.body.classList.remove('is-locked'))
+watch(pdfOpen, async (value) => {
+  document.body.classList.toggle('is-locked', value)
+  if (value) {
+    pdfTrigger = document.activeElement as HTMLElement | null
+    await nextTick()
+    pdfDialog.value?.querySelector<HTMLElement>('.certificate-pdf-modal__close')?.focus()
+  } else if (pdfTrigger?.isConnected) pdfTrigger.focus({ preventScroll: true })
+})
+function pdfKeys(event: KeyboardEvent) {
+  if (!pdfOpen.value) return
+  if (event.key === 'Escape') { event.preventDefault(); pdfOpen.value = false; return }
+  if (event.key !== 'Tab') return
+  const items = [...(pdfDialog.value?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),[tabindex="0"]') || [])].filter(element => element.getClientRects().length)
+  const first = items[0], last = items.at(-1)
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+}
+useLocaleReload(load)
+onMounted(() => { void load(); window.addEventListener('keydown', pdfKeys) })
+usePageAnalytics('certificate_detail', String(route.params.uuid))
+onBeforeUnmount(() => { document.body.classList.remove('is-locked'); window.removeEventListener('keydown', pdfKeys) })
 useMeta({ title, description })
 </script>
 
@@ -74,22 +98,37 @@ useMeta({ title, description })
     </header>
     <div class="container certificate-detail__grid">
       <section class="certificate-detail__visual">
+        <header v-if="state.data.value.asset && (isPdf || lightboxItems.length)" class="certificate-preview-heading">
+          <span class="certificate-preview-heading__file"><i>{{ isPdf ? 'PDF' : (state.data.value.asset.extension || '').replace('.', '').toUpperCase() || 'IMG' }}</i>{{ state.data.value.asset.display_name || state.data.value.name }}</span>
+          <span class="certificate-preview-heading__actions">
+            <button class="button button--dark button--small" type="button" @click="isPdf ? pdfOpen = true : lightboxOpen = true">
+              <Maximize2 :size="15" />{{ isPdf ? locale.t('openFullPdf') : locale.t('clickEnlarge') }}
+            </button>
+            <span v-if="assetProtected" class="asset-view-only asset-view-only--small"><Eye :size="14" />{{ locale.isEnglish ? 'View only' : '仅可查看' }}</span>
+            <button v-else class="button button--outline button--small" type="button" :aria-label="locale.t('downloadOriginal')" @click="downloadCertificate">
+              <Download :size="15" /><span class="certificate-preview-heading__label">{{ locale.t('downloadOriginal') }}</span>
+            </button>
+          </span>
+        </header>
         <button
           v-if="lightboxItems.length"
           type="button"
+          class="certificate-preview-image"
           :aria-label="locale.t('enlargeCertificate')"
           @click="lightboxOpen = true"
         >
-          <img
-            :src="state.data.value.asset?.content_url"
+          <AssetMedia
+            v-if="state.data.value.asset"
+            :asset="state.data.value.asset"
+            kind="image"
             :alt="`${state.data.value.name} ${locale.t('certificatePreview')}`"
           />
-          <span><Maximize2 :size="17" />{{ locale.t('clickEnlarge') }}</span>
         </button>
         <button
           v-else-if="isPdf && state.data.value.asset"
           type="button"
-          class="certificate-pdf-trigger"
+          class="certificate-preview-image"
+          :class="{ 'certificate-preview-image--empty': !state.data.value.asset.thumbnail_url }"
           :aria-label="locale.t('openFullPdf')"
           @click="pdfOpen = true"
         >
@@ -99,8 +138,6 @@ useMeta({ title, description })
             :alt="`${state.data.value.name} ${locale.t('pdfFirstPage')}`"
           />
           <FileText v-else :size="58" />
-          <strong>{{ state.data.value.asset.display_name }}</strong>
-          <span><Maximize2 :size="17" />{{ locale.t('openFullPdf') }}</span>
         </button>
         <RouterLink
           v-else-if="state.data.value.asset"
@@ -167,12 +204,13 @@ useMeta({ title, description })
     />
     <Teleport to="body">
       <Transition name="lightbox">
-        <div v-if="pdfOpen && state.data.value.asset" class="certificate-pdf-modal" @click.self="pdfOpen = false">
+        <div v-if="pdfOpen && state.data.value.asset" ref="pdfDialog" class="certificate-pdf-modal" role="dialog" :aria-modal="pdfOpen" :inert="!pdfOpen" :aria-label="state.data.value.name" @click.self="pdfOpen = false">
           <button class="icon-button icon-button--light certificate-pdf-modal__close" :aria-label="locale.t('closePdf')" @click="pdfOpen = false">
             <X :size="22" />
           </button>
           <PdfViewer
             :src="state.data.value.asset.content_url"
+            :protected-asset="state.data.value.asset.protected ? state.data.value.asset : null"
             :title="state.data.value.name"
             :meta="state.data.value.issuer"
             @download="downloadCertificate"

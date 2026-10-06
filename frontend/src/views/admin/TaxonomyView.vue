@@ -4,14 +4,18 @@ import { Pencil, Plus, Trash2, X } from 'lucide-vue-next'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
+import { useAiTask } from '@/composables/useAiTask'
+import AiProgressPanel from '@/components/admin/AiProgressPanel.vue'
 import { adminApi } from '@/api/admin'
 import { useAsyncState } from '@/composables/useAsync'
 import { useToastStore } from '@/stores/toast'
 import type { TaxonomyItem } from '@/types'
 
+const ai = useAiTask()
 const props = defineProps<{ mode: 'categories' | 'tags' }>()
 const state = useAsyncState<{ items: TaxonomyItem[] }>()
 const toast = useToastStore()
+const saving = ref(false)
 const editing = ref<TaxonomyItem | 'new' | null>(null)
 const form = reactive({ name: '', slug: '', description: '', sort_order: 0, color: '#315b4f', translations: {} as Record<string, Record<string, string>> })
 const editLocale = ref<'zh-CN' | 'en'>('zh-CN')
@@ -23,25 +27,31 @@ async function load() {
   await state.run(() => props.mode === 'categories' ? adminApi.categories() : adminApi.tags())
 }
 function open(item?: TaxonomyItem) {
+  if (saving.value) return
   editing.value = item || 'new'
   Object.assign(form, item ? { ...item, description: item.description || '', sort_order: item.sort_order || 0, color: item.color || '#315b4f', translations: item.translations || {} } : { name: '', slug: '', description: '', sort_order: 0, color: '#315b4f', translations: {} })
-  Object.assign(english, form.translations.en || { name: '', description: '' })
+  Object.assign(english, { name: '', description: '' }, form.translations.en || { name: '', description: '' })
 }
 async function save() {
-  if (!editing.value) return
-  const current = editing.value
-  form.translations = { ...form.translations, en: { ...english } }
-  if (current === 'new') {
-    if (props.mode === 'categories') await adminApi.createCategory(form)
-    else await adminApi.createTag(form)
-  } else {
-    if (props.mode === 'categories') await adminApi.updateCategory(current.uuid, form)
-    else await adminApi.updateTag(current.uuid, form)
-  }
-  editing.value = null
-  toast.show(`${props.mode === 'categories' ? '分类' : '标签'}已保存`, 'success')
-  await load()
+  if (!editing.value || saving.value || ai.state.running) return
+  saving.value = true
+  try {
+    const current = editing.value
+    form.translations = { ...form.translations, en: { ...english } }
+    if (current === 'new') {
+      if (props.mode === 'categories') await adminApi.createCategory(form)
+      else await adminApi.createTag(form)
+    } else {
+      if (props.mode === 'categories') await adminApi.updateCategory(current.uuid, form)
+      else await adminApi.updateTag(current.uuid, form)
+    }
+    editing.value = null
+    toast.show(`${props.mode === 'categories' ? '分类' : '标签'}已保存`, 'success')
+    await load()
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : "保存失败，请重试", "error") }
+  finally { saving.value = false }
 }
+
 async function remove(item: TaxonomyItem) {
   if (!window.confirm(`确定删除“${item.name}”吗？有关联项目时系统会阻止删除。`)) return
   try {
@@ -53,11 +63,23 @@ async function remove(item: TaxonomyItem) {
     toast.show(cause instanceof Error ? cause.message : '删除失败', 'error')
   }
 }
-watch(() => props.mode, load)
+watch(() => props.mode, () => { editing.value = null; ai.cancel(); void load() })
+async function translateContent() {
+  const unchanged = ai.guard(() => ({ editing: editing.value, form, english }))
+  const fromEnglish = editLocale.value === 'en'
+  try {
+    const content = fromEnglish ? { ...english } : { name: form.name, description: form.description }
+    const result = await ai.run('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: props.mode === 'categories' ? 'category' : 'tag', content, existing_translation: fromEnglish ? { name: form.name, description: form.description } : { ...english } }, unchanged)
+    Object.assign(fromEnglish ? form : english, result)
+    editLocale.value = fromEnglish ? 'zh-CN' : 'en'
+    toast.show('翻译已生成，请检查后保存', 'success')
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '翻译失败', 'error') }
+}
 onMounted(load)
 </script>
 
 <template>
+  <Teleport to="body"><aside v-if="ai.state.visible" class="ai-task-dock"><AiProgressPanel :task="ai.state" :body="ai.body.value" @cancel="ai.cancel" @close="ai.state.visible = false" /></aside></Teleport>
   <div class="admin-page">
     <header class="admin-page-heading">
       <div><span class="eyebrow">Taxonomy</span><h1>{{ title }}</h1><p>{{ description }}</p></div>
@@ -66,21 +88,24 @@ onMounted(load)
     <LoadingState v-if="state.loading.value" :rows="7" />
     <ErrorState v-else-if="state.error.value" :message="state.error.value" @retry="load" />
     <EmptyState v-else-if="!state.data.value?.items.length" :title="`还没有${title}`" description="创建后即可在项目编辑和公开筛选中使用。" />
-    <div v-else class="taxonomy-list">
+    <div v-else class="taxonomy-list" :class="`taxonomy-list--${mode}`">
       <article v-for="item in state.data.value.items" :key="item.uuid">
         <span v-if="mode === 'tags'" class="taxonomy-color" :style="{ backgroundColor: item.color }" />
         <div><strong>{{ item.name }}</strong><small>{{ item.slug }}</small></div>
         <p v-if="mode === 'categories'">{{ item.description || '暂无说明' }}</p>
         <span>{{ item.project_count || 0 }} 个关联项目</span>
         <span v-if="mode === 'categories'">排序 {{ item.sort_order || 0 }}</span>
+        <div class="row-actions">
         <button class="icon-button" aria-label="编辑" @click="open(item)"><Pencil :size="16" /></button>
         <button class="icon-button danger-text" aria-label="删除" @click="remove(item)"><Trash2 :size="16" /></button>
+        </div>
       </article>
     </div>
     <Teleport to="body">
-      <div v-if="editing" class="modal-backdrop" @click.self="editing = null">
+      <div v-if="editing" class="modal-backdrop" @click.self="!saving && (editing = null)">
         <form class="modal-card" @submit.prevent="save">
-          <header><div><span class="eyebrow">Taxonomy item</span><h2>{{ editing === 'new' ? '新建' : '编辑' }}{{ mode === 'categories' ? '分类' : '标签' }}</h2></div><button class="icon-button" type="button" @click="editing = null"><X :size="19" /></button></header>
+          <header><div><span class="eyebrow">Taxonomy item</span><h2>{{ editing === 'new' ? '新建' : '编辑' }}{{ mode === 'categories' ? '分类' : '标签' }}</h2></div><button class="icon-button" type="button" @click="!saving && (editing = null)"><X :size="19" /></button></header>
+          <button class="button button--outline" type="button" :disabled="ai.state.running" @click="translateContent">{{ ai.state.running ? '翻译中…' : editLocale === 'en' ? 'AI 翻译为中文' : 'AI 翻译为英文' }}</button>
           <div class="language-tabs"><button type="button" :class="{ active: editLocale === 'zh-CN' }" @click="editLocale = 'zh-CN'">中文</button><button type="button" :class="{ active: editLocale === 'en' }" @click="editLocale = 'en'">English</button></div>
           <label>{{ editLocale === 'en' ? 'Name' : '名称' }}<input v-if="editLocale === 'zh-CN'" v-model="form.name" required /><input v-else v-model="english.name" /></label>
           <label>URL 标识<input v-model="form.slug" placeholder="留空自动生成" /></label>
@@ -89,7 +114,7 @@ onMounted(load)
             <label>排序值<input v-model.number="form.sort_order" type="number" /></label>
           </template>
           <label v-else>视觉颜色<input v-model="form.color" type="color" /></label>
-          <footer><button type="button" class="button button--outline" @click="editing = null">取消</button><button class="button button--dark">保存</button></footer>
+          <footer><button type="button" class="button button--outline" @click="!saving && (editing = null)">取消</button><button class="button button--dark" :disabled="saving || ai.state.running">保存</button></footer>
         </form>
       </div>
     </Teleport>

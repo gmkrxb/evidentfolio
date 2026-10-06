@@ -239,3 +239,29 @@ def test_project_album_sections_and_dynamic_cover(
     )
     assert updated.status_code == 200, updated.text
     assert updated.json()["data"]["auto_cover_assets"] == []
+
+
+def test_cover_also_collects_album_images_without_private_or_duplicate_files(
+    admin_client: TestClient, csrf_headers: dict[str, str], project_payload: dict
+) -> None:
+    images = []
+    for name, color, public in [("cover", "red", True), ("album", "blue", True), ("private", "green", False)]:
+        response = admin_client.post(
+            "/api/v1/admin/assets/upload", headers=csrf_headers,
+            data={"is_public": str(public).lower()},
+            files={"file": (f"{name}.png", image_bytes(color), "image/png")},
+        )
+        assert response.status_code == 200, response.text
+        images.append(response.json()["data"])
+    project_payload.update({
+        "status": "published", "cover_asset_uuid": images[0]["uuid"],
+        "albums": [{"title": "项目图片", "asset_uuids": [image["uuid"] for image in images], "display_mode": "grid", "sort_order": 0}],
+    })
+    created = admin_client.post("/api/v1/admin/projects", json=project_payload, headers=csrf_headers)
+    assert created.status_code == 200, created.text
+    project = created.json()["data"]
+    listed = admin_client.get("/api/v1/public/projects").json()["data"]["items"][0]
+    detailed = admin_client.get(f"/api/v1/public/projects/{project['uuid']}").json()["data"]
+    for result in [listed, detailed]:
+        assert [image["uuid"] for image in result["auto_cover_assets"]] == [images[0]["uuid"], images[1]["uuid"]]
+        assert result["auto_cover_assets"][0]["width"] == 80

@@ -151,13 +151,14 @@ def test_file_type_validation_and_batch_upload(
     assert all(item["success"] for item in batch.json()["data"]["items"])
 
 
-def test_thumbnail_uses_nginx_internal_redirect_when_available(
-    admin_client: TestClient, csrf_headers: dict[str, str]
+@pytest.mark.parametrize("is_public", [True, False])
+def test_thumbnail_preserves_cache_policy_with_legacy_nginx(
+    admin_client: TestClient, csrf_headers: dict[str, str], is_public: bool
 ) -> None:
     uploaded = admin_client.post(
         "/api/v1/admin/assets/upload",
         headers=csrf_headers,
-        data={"is_public": "true"},
+        data={"is_public": str(is_public).lower()},
         files={"file": ("accelerated.png", png_bytes(), "image/png")},
     )
     assert uploaded.status_code == 200, uploaded.text
@@ -167,10 +168,9 @@ def test_thumbnail_uses_nginx_internal_redirect_when_available(
         headers={"X-Accel-Supported": "1"},
     )
     assert thumbnail.status_code == 200
-    assert thumbnail.headers["x-accel-redirect"].startswith(
-        "/_protected_thumbnails/"
-    )
-    assert thumbnail.content == b""
+    assert "x-accel-redirect" not in thumbnail.headers
+    assert thumbnail.headers["cache-control"] == ("public, no-cache" if is_public else "private, no-store")
+    assert thumbnail.content
 
 
 def test_pdf_resource_is_not_a_resume_until_registered(
@@ -204,6 +204,17 @@ def test_pdf_resource_is_not_a_resume_until_registered(
         },
     )
     assert registered.status_code == 200, registered.text
+    from app.core.database import get_session_factory
+    from app.models import Resume
+    from sqlalchemy import select
+    with get_session_factory()() as db:
+        resume = db.scalar(select(Resume).where(Resume.uuid == registered.json()['data']['uuid']))
+        resume.translations = {'en': {'name': 'English résumé'}}
+        db.commit()
+    english = admin_client.get('/api/v1/public/resumes?locale=en', headers={'Accept-Language': 'zh-CN'})
+    assert english.json()['data']['items'][0]['name'] == 'English résumé'
+    detail = admin_client.get(f"/api/v1/public/resumes/{registered.json()['data']['uuid']}?locale=en", headers={'Accept-Language': 'zh-CN'})
+    assert detail.json()['data']['name'] == 'English résumé'
     dependencies = admin_client.get(
         f"/api/v1/admin/assets/{asset_uuid}/dependencies"
     )
@@ -274,6 +285,7 @@ def test_analytics_recognizes_repeat_visitor(client: TestClient) -> None:
             }
         ]
     }
+    client.put("/api/v1/privacy/consent", json={"analytics": True})
     first = client.post("/api/v1/analytics/events", json=payload)
     assert first.status_code == 200
     assert first.json()["data"]["is_new_visitor"] is True
@@ -297,6 +309,7 @@ def test_analytics_project_ranking_contains_project_title(
     )
     assert created.status_code == 200, created.text
     project_uuid = created.json()["data"]["uuid"]
+    admin_client.put("/api/v1/privacy/consent", json={"analytics": True})
     event = admin_client.post(
         "/api/v1/analytics/events",
         json={

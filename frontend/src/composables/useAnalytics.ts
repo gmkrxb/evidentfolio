@@ -1,4 +1,7 @@
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, watch } from 'vue'
+
+import { privacy } from '@/stores/privacy'
+import { API_BASE_URL } from '@/api/client'
 
 interface AnalyticsEvent {
   event_type: string
@@ -18,6 +21,15 @@ interface AnalyticsEvent {
 
 const queue: AnalyticsEvent[] = []
 let flushTimer = 0
+const requests = new Set<AbortController>()
+let consentGeneration = 0
+window.addEventListener('portfolio-consent-changed', () => {
+  consentGeneration += 1
+  queue.length = 0
+  window.clearTimeout(flushTimer)
+  requests.forEach((controller) => controller.abort())
+  requests.clear()
+})
 
 function context(): Partial<AnalyticsEvent> {
   const query = new URLSearchParams(location.search)
@@ -34,15 +46,20 @@ function context(): Partial<AnalyticsEvent> {
 
 function flush(useBeacon = false) {
   window.clearTimeout(flushTimer)
+  if (!privacy.ready || !privacy.analytics) { queue.length = 0; return }
   if (!queue.length) return
+  const generation = consentGeneration
+  const controller = new AbortController()
+  requests.add(controller)
   const events = queue.splice(0, 50)
   const body = JSON.stringify({ events })
   if (useBeacon && navigator.sendBeacon) {
-    navigator.sendBeacon('/api/v1/analytics/events', new Blob([body], { type: 'application/json' }))
-    return
+    const sent = navigator.sendBeacon(`${API_BASE_URL}/analytics/events`, new Blob([body], { type: 'application/json' }))
+    if (sent) { requests.delete(controller); return }
   }
-  fetch('/api/v1/analytics/events', {
+  fetch(`${API_BASE_URL}/analytics/events`, {
     method: 'POST',
+    signal: controller.signal,
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body,
@@ -52,13 +69,16 @@ function flush(useBeacon = false) {
       if (!response.ok) throw new Error(`analytics returned ${response.status}`)
     })
     .catch(() => {
+      if (controller.signal.aborted || generation !== consentGeneration || !privacy.analytics) return
       queue.unshift(...events)
+      queue.splice(100)
       window.clearTimeout(flushTimer)
       flushTimer = window.setTimeout(() => flush(), 4000 + Math.floor(Math.random() * 1000))
-    })
+    }).finally(() => requests.delete(controller))
 }
 
 export function track(event: AnalyticsEvent, immediate = false) {
+  if (!privacy.ready || !privacy.analytics) return
   queue.push({ ...context(), ...event })
   if (immediate || queue.length >= 10) flush()
   else {
@@ -68,9 +88,17 @@ export function track(event: AnalyticsEvent, immediate = false) {
 }
 
 export function usePageAnalytics(pageType: string, pageUuid?: string) {
-  const started = performance.now()
-  onMounted(() => track({ event_type: 'page_view', page_type: pageType, page_uuid: pageUuid }))
-  const end = () =>
+  let started = performance.now()
+  let recorded = false
+  function begin() {
+    if (!privacy.ready || !privacy.analytics || recorded) return
+    recorded = true; started = performance.now()
+    track({ event_type: 'page_view', page_type: pageType, page_uuid: pageUuid })
+  }
+  onMounted(begin)
+  watch(() => privacy.ready && privacy.analytics, (allowed) => { if (allowed) begin(); else recorded = false })
+  const end = () => {
+    if (!recorded) return
     track(
       {
         event_type: 'page_exit',
@@ -80,6 +108,7 @@ export function usePageAnalytics(pageType: string, pageUuid?: string) {
       },
       true,
     )
+  }
   onBeforeUnmount(end)
 }
 

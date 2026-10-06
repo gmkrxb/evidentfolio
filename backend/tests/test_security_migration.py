@@ -70,13 +70,14 @@ def test_alembic_upgrades_empty_database(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
     assert database_path.is_file()
     with sqlite3.connect(database_path) as connection:
-        assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "20260821_0005"
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "20261005_0012"
         assert connection.execute("SELECT COUNT(*) FROM admin_users").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM projects").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM resumes").fetchone()[0] == 0
 
 
-def test_startup_upgrades_previous_database_and_keeps_content(tmp_path: Path) -> None:
+@pytest.mark.parametrize("skip_backup", [False, True])
+def test_startup_upgrades_previous_database_and_keeps_content(tmp_path: Path, skip_backup: bool) -> None:
     backend_root = Path(__file__).resolve().parents[1]
     config_path = tmp_path / "upgrade_config.py"
     database_path = tmp_path / "portfolio.db"
@@ -107,7 +108,8 @@ def test_startup_upgrades_previous_database_and_keeps_content(tmp_path: Path) ->
             capture_output=True, text=True, timeout=60,
         )
 
-    previous = run("-m", "alembic", "-c", "alembic.ini", "upgrade", "20260731_0004")
+    previous_revision = "20260821_0005" if skip_backup else "20260731_0004"
+    previous = run("-m", "alembic", "-c", "alembic.ini", "upgrade", previous_revision)
     assert previous.returncode == 0, previous.stderr
     with sqlite3.connect(database_path) as connection:
         connection.execute(
@@ -116,14 +118,20 @@ def test_startup_upgrades_previous_database_and_keeps_content(tmp_path: Path) ->
         )
         connection.commit()
 
-    preflight = run("-m", "app.startup", "preflight")
+    preflight = run("-m", "app.startup", "preflight", *(["--skip-backup"] if skip_backup else []))
     assert preflight.returncode == 0, preflight.stderr
-    assert (database_path.parent / "migration-backups" / "portfolio.before-20260731_0004.db").is_file()
+    backup_path = database_path.parent / "migration-backups" / f"portfolio.before-{previous_revision}.db"
+    assert backup_path.is_file() == (not skip_backup)
     upgraded = run("-m", "alembic", "-c", "alembic.ini", "upgrade", "head")
     assert upgraded.returncode == 0, upgraded.stderr
     postflight = run("-m", "app.startup", "postflight")
     assert postflight.returncode == 0, postflight.stderr
+    restarted = run("-m", "app.startup", "preflight")
+    assert restarted.returncode == 0, restarted.stderr
+    assert not (database_path.parent / "migration-backups" / "portfolio.before-20261005_0012.db").exists()
+    if skip_backup:
+        assert not (database_path.parent / "migration-backups").exists()
 
     with sqlite3.connect(database_path) as connection:
-        assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "20260821_0005"
+        assert connection.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "20261005_0012"
         assert "Preserved" in connection.execute("SELECT data FROM site_settings WHERE id=1").fetchone()[0]

@@ -12,6 +12,20 @@ def image_bytes() -> bytes:
     return output.getvalue()
 
 
+def test_empty_english_settings_fall_back_to_original_content():
+    from app.api.routes.public import localized_settings
+    source = {'headline': '原始标题', 'page_content': {'contact': {'hero_title': '联系我', 'hero_description': '保持联系'}},
+              'navigation_items': [{'label': '项目', 'to': '/projects'}], 'home_capabilities': ['研究'],
+              'translations': {'en': {'headline': '', 'page_content': {'contact': {'hero_title': 'Contact', 'hero_description': ' '}},
+                                      'navigation_items': [{'label': '', 'to': '/projects'}], 'home_capabilities': []}}}
+    localized = localized_settings(source, 'en')
+    assert localized['headline'] == '原始标题'
+    assert localized['page_content']['contact'] == {'hero_title': 'Contact', 'hero_description': '保持联系'}
+    assert localized['navigation_items'][0]['label'] == '项目'
+    assert localized['home_capabilities'] == ['研究']
+    assert source['page_content']['contact']['hero_title'] == '联系我'
+
+
 def test_public_english_project_uses_album_title_without_duplicate_global_asset(
     admin_client: TestClient,
     csrf_headers: dict[str, str],
@@ -77,5 +91,6 @@ def test_ai_config_masks_saved_api_key(
         "model": "example-model",
         "enabled": True,
         "has_api_key": True,
+        "max_context_chars": 32000,
     }
     assert "test-secret-key" not in loaded.text

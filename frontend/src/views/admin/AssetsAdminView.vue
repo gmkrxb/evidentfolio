@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Download, Eye, File, Folder, FolderPlus, Image, MoveRight, Pencil, RefreshCw, Search, Trash2, UploadCloud, Video, X } from 'lucide-vue-next'
+import AssetReplaceButton from '@/components/admin/AssetReplaceButton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
+import { useAiTask } from '@/composables/useAiTask'
+import AiProgressPanel from '@/components/admin/AiProgressPanel.vue'
 import { adminApi, type AssetDependencies, type AssetFolderDependencies } from '@/api/admin'
 import { api } from '@/api/client'
 import { useAsyncState } from '@/composables/useAsync'
@@ -19,8 +22,11 @@ interface UploadItem {
   error: string
 }
 
+const ai = useAiTask()
 const state = useAsyncState<{ items: Asset[]; pagination: { total: number } }>()
 const toast = useToastStore()
+const saving = ref(false)
+const page = ref(1)
 const q = ref('')
 const category = ref('')
 const dragging = ref(false)
@@ -41,7 +47,7 @@ const deletingAsset = ref<Asset | null>(null)
 const folderDeleteReview = ref<AssetFolderDependencies | null>(null)
 const folderForm = reactive({ name: '', description: '', sort_order: 0, parent_uuid: null as string | null })
 const editing = ref<Asset | null>(null)
-const editForm = reactive({ display_name: '', description: '', logical_group: '', is_public: false, folder_uuid: null as string | null, translations: {} as Record<string, Record<string, string>> })
+const editForm = reactive({ display_name: '', description: '', logical_group: '', is_public: false, access_mode: 'download' as 'download' | 'view', folder_uuid: null as string | null, translations: {} as Record<string, Record<string, string>> })
 const assetEditLocale = ref<'zh-CN' | 'en'>('zh-CN')
 const assetEnglish = reactive({ display_name: '', description: '' })
 const activeUploads = ref(0)
@@ -65,6 +71,7 @@ function load() {
     q: q.value || undefined,
     category: category.value || undefined,
     folder: activeFolder.value || undefined,
+    page: page.value,
     page_size: 100,
   }))
 }
@@ -129,10 +136,11 @@ function openEdit(asset: Asset) {
     description: asset.description,
     logical_group: asset.logical_group,
     is_public: asset.is_public,
+    access_mode: asset.access_mode || 'download',
     folder_uuid: asset.folder?.uuid || null,
     translations: asset.translations || {},
   })
-  Object.assign(assetEnglish, asset.translations?.en || { display_name: '', description: '' })
+  Object.assign(assetEnglish, { display_name: '', description: '' }, asset.translations?.en || { display_name: '', description: '' })
 }
 function openFolderDialog(folder: AssetFolder | null = null) {
   folderEditing.value = folder
@@ -152,26 +160,41 @@ function openFolderDialog(folder: AssetFolder | null = null) {
   folderDialogOpen.value = true
 }
 async function saveFolder() {
-  if (folderEditing.value) {
-    await adminApi.updateAssetFolder(folderEditing.value.uuid, folderForm)
-  } else {
-    await adminApi.createAssetFolder(folderForm)
-  }
-  folderDialogOpen.value = false
-  toast.show('文件夹已保存', 'success')
-  await loadFolders()
+  if (saving.value) return
+  saving.value = true
+  try {
+    if (folderEditing.value) {
+      await adminApi.updateAssetFolder(folderEditing.value.uuid, folderForm)
+    } else {
+      await adminApi.createAssetFolder(folderForm)
+    }
+    folderDialogOpen.value = false
+    toast.show('文件夹已保存', 'success')
+    await loadFolders()
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '操作失败，请重试', 'error') }
+  finally { saving.value = false }
 }
 async function removeFolder(folder: AssetFolder) {
-  folderDeleteReview.value = await adminApi.assetFolderDependencies(folder.uuid)
+  if (saving.value) return
+  saving.value = true
+  try {
+    folderDeleteReview.value = await adminApi.assetFolderDependencies(folder.uuid)
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '操作失败，请重试', 'error') }
+  finally { saving.value = false }
 }
 async function confirmFolderDelete() {
-  const review = folderDeleteReview.value
-  if (!review || review.has_dependencies) return
-  await adminApi.deleteAssetFolder(review.folder.uuid, true)
-  if (activeFolder.value === review.folder.uuid) activeFolder.value = ''
-  folderDeleteReview.value = null
-  toast.show('文件夹、其中资源和物理文件均已删除', 'success')
-  await loadAll()
+  if (saving.value) return
+  saving.value = true
+  try {
+    const review = folderDeleteReview.value
+    if (!review || review.has_dependencies) return
+    await adminApi.deleteAssetFolder(review.folder.uuid, true)
+    if (activeFolder.value === review.folder.uuid) activeFolder.value = ''
+    folderDeleteReview.value = null
+    toast.show('文件夹、其中资源和物理文件均已删除', 'success')
+    await loadAll()
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '操作失败，请重试', 'error') }
+  finally { saving.value = false }
 }
 async function moveSelected() {
   if (!selectedAssets.value.length) return
@@ -198,36 +221,52 @@ function openFolderMoveDialog(folder: AssetFolder) {
   folderMoveDialogOpen.value = true
 }
 async function confirmFolderMove() {
-  const folder = movingFolder.value
-  if (!folder) return
-  await adminApi.updateAssetFolder(folder.uuid, {
-    name: folder.name,
-    description: folder.description,
-    sort_order: folder.sort_order,
-    parent_uuid: moveTarget.value || null,
-  })
-  toast.show('文件夹已移动，内部资源 UUID 与所有引用保持不变', 'success')
-  folderMoveDialogOpen.value = false
-  movingFolder.value = null
-  await loadFolders()
+  if (saving.value) return
+  saving.value = true
+  try {
+    const folder = movingFolder.value
+    if (!folder) return
+    await adminApi.updateAssetFolder(folder.uuid, {
+      name: folder.name,
+      description: folder.description,
+      sort_order: folder.sort_order,
+      parent_uuid: moveTarget.value || null,
+    })
+    toast.show('文件夹已移动，内部资源 UUID 与所有引用保持不变', 'success')
+    folderMoveDialogOpen.value = false
+    movingFolder.value = null
+    await loadFolders()
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '操作失败，请重试', 'error') }
+  finally { saving.value = false }
 }
 async function confirmMove() {
-  await moveSelected()
-  moveDialogOpen.value = false
+  if (saving.value) return
+  saving.value = true
+  try {
+    await moveSelected()
+    moveDialogOpen.value = false
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '操作失败，请重试', 'error') }
+  finally { saving.value = false }
 }
 function selectFolder(uuid: string) {
+  page.value = 1
   activeFolder.value = uuid
   selectedAssets.value = []
   void load()
 }
 async function saveEdit() {
-  if (!editing.value) return
-  editForm.translations = { ...editForm.translations, en: { ...assetEnglish } }
-  await adminApi.updateAsset(editing.value.uuid, editForm)
-  editing.value = null
-  toast.show('资源信息已保存，UUID 地址保持不变', 'success')
-  await loadAll()
+  if (!editing.value || saving.value || ai.state.running) return
+  saving.value = true
+  try {
+    editForm.translations = { ...editForm.translations, en: { ...assetEnglish } }
+    await adminApi.updateAsset(editing.value.uuid, editForm)
+    editing.value = null
+    toast.show('资源信息已保存，UUID 地址保持不变', 'success')
+    await loadAll()
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : "保存失败，请重试", "error") }
+  finally { saving.value = false }
 }
+
 async function remove(asset: Asset) {
   try {
     deletingAsset.value = asset
@@ -258,10 +297,23 @@ function formatBytes(size: number) {
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
+async function translateContent() {
+  const unchanged = ai.guard(() => ({ editing: editing.value, editForm, assetEnglish }))
+  const fromEnglish = assetEditLocale.value === 'en'
+  try {
+    const content = fromEnglish ? { ...assetEnglish } : { display_name: editForm.display_name, description: editForm.description }
+    const result = await ai.run('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: 'asset', content, existing_translation: fromEnglish ? { display_name: editForm.display_name, description: editForm.description } : { ...assetEnglish } }, unchanged)
+    Object.assign(fromEnglish ? editForm : assetEnglish, result)
+    assetEditLocale.value = fromEnglish ? 'zh-CN' : 'en'
+    toast.show('翻译已生成，请检查后保存', 'success')
+  } catch (cause) { toast.show(cause instanceof Error ? cause.message : '翻译失败', 'error') }
+}
+watch([q, category, activeFolder], () => { page.value = 1 }, { flush: 'sync' })
 onMounted(loadAll)
 </script>
 
 <template>
+  <Teleport to="body"><aside v-if="ai.state.visible" class="ai-task-dock"><AiProgressPanel :task="ai.state" :body="ai.body.value" @cancel="ai.cancel" @close="ai.state.visible = false" /></aside></Teleport>
   <div class="admin-page">
     <header class="admin-page-heading">
       <div><span class="eyebrow">Media library</span><h1>文件与资源</h1><p>安全上传、预览、重命名和管理稳定 UUID 资源地址。</p></div>
@@ -280,7 +332,7 @@ onMounted(loadAll)
       <label class="check-label"><input v-model="uploadPublic" type="checkbox" />上传后立即公开</label>
     </section>
     <section v-if="hasUploads" class="upload-queue">
-      <div class="admin-panel__heading"><div><span class="eyebrow">Upload queue</span><h2>上传队列</h2></div><button @click="queue = queue.filter((item) => item.status === 'uploading')">清除已完成</button></div>
+      <div class="admin-panel__heading"><div><span class="eyebrow">Upload queue</span><h2>上传队列</h2></div><button @click="queue = queue.filter((item) => item.status !== 'success')">清除已完成</button></div>
       <article v-for="item in queue" :key="item.id">
         <File :size="18" />
         <div><strong>{{ item.file.name }}</strong><span>{{ formatBytes(item.file.size) }} · {{ uploadStatusLabel(item.status) }}</span><div class="progress"><span :style="{ width: `${item.progress}%` }" /></div><small v-if="item.error">{{ item.error }}</small></div>
@@ -339,28 +391,31 @@ onMounted(loadAll)
           <label class="asset-card__select" aria-label="选择资源"><input v-model="selectedAssets" type="checkbox" :value="asset.uuid" /></label>
           <img v-if="asset.thumbnail_url" :src="asset.thumbnail_url" :alt="asset.description || asset.display_name" loading="lazy" />
           <component :is="iconFor(asset)" v-else :size="30" />
-          <span :class="{ public: asset.is_public }">{{ asset.is_public ? '公开' : '私有' }}</span>
+          <span :class="{ public: asset.is_public, 'view-only': asset.is_public && asset.protected }">{{ asset.is_public ? (asset.protected ? '公开 · 仅查看' : '公开') : '私有' }}</span>
         </div>
         <div class="asset-card__body">
           <strong :title="asset.display_name">{{ asset.display_name }}</strong>
-          <span>{{ asset.extension.toUpperCase() }} · {{ formatBytes(asset.size) }}</span>
+          <span>v{{ asset.version || 1 }} · {{ asset.extension.toUpperCase() }} · {{ formatBytes(asset.size) }}</span>
           <small :title="asset.original_name">原名：{{ asset.original_name }}</small>
           <small v-if="asset.folder">文件夹：{{ asset.folder.name }}</small>
           <div>
             <RouterLink :to="`/assets/${asset.uuid}`" target="_blank" title="预览"><Eye :size="17" /></RouterLink>
             <a :href="asset.download_url" title="下载"><Download :size="17" /></a>
+            <AssetReplaceButton :asset="asset" variant="icon" @replaced="load" />
             <button title="编辑信息" @click="openEdit(asset)"><Pencil :size="16" /></button>
             <button class="danger-text" title="删除" @click="remove(asset)"><Trash2 :size="16" /></button>
           </div>
         </div>
       </article>
     </div>
+      <nav v-if="(state.data.value?.pagination.total || 0) > 100" class="pagination" aria-label="资源分页"><button class="button button--outline" :disabled="page === 1 || state.loading.value" @click="page--; load()">上一页</button><span>{{ page }} / {{ Math.ceil((state.data.value?.pagination.total || 0) / 100) }}</span><button class="button button--outline" :disabled="page * 100 >= (state.data.value?.pagination.total || 0) || state.loading.value" @click="page++; load()">下一页</button></nav>
       </main>
     </div>
     <Teleport to="body">
-      <div v-if="editing" class="modal-backdrop" @click.self="editing = null">
+      <div v-if="editing" class="modal-backdrop" @click.self="!saving && (editing = null)">
         <form class="modal-card" @submit.prevent="saveEdit">
-          <header><div><span class="eyebrow">Edit asset</span><h2>资源信息</h2></div><button class="icon-button" type="button" aria-label="关闭" @click="editing = null"><X :size="19" /></button></header>
+          <header><div><span class="eyebrow">Edit asset</span><h2>资源信息</h2></div><button class="icon-button" type="button" aria-label="关闭" @click="!saving && (editing = null)"><X :size="19" /></button></header>
+          <button class="button button--outline" type="button" :disabled="ai.state.running" @click="translateContent">{{ ai.state.running ? '翻译中…' : assetEditLocale === 'en' ? 'AI 翻译为中文' : 'AI 翻译为英文' }}</button>
           <div class="language-tabs"><button type="button" :class="{ active: assetEditLocale === 'zh-CN' }" @click="assetEditLocale = 'zh-CN'">中文</button><button type="button" :class="{ active: assetEditLocale === 'en' }" @click="assetEditLocale = 'en'">English</button></div>
           <label>{{ assetEditLocale === 'en' ? 'Display name' : '展示名称' }}<input v-if="assetEditLocale === 'zh-CN'" v-model="editForm.display_name" required /><input v-else v-model="assetEnglish.display_name" /></label>
           <label>逻辑分组<input v-model="editForm.logical_group" placeholder="例如：研究论文 / 架构图" /></label>
@@ -372,8 +427,14 @@ onMounted(loadAll)
           </label>
           <label>{{ assetEditLocale === 'en' ? 'Description' : '描述' }}<textarea v-if="assetEditLocale === 'zh-CN'" v-model="editForm.description" rows="5" /><textarea v-else v-model="assetEnglish.description" rows="5" /></label>
           <label class="check-label"><input v-model="editForm.is_public" type="checkbox" />允许公开访问</label>
+          <fieldset v-if="editing.previewable" class="access-mode" :disabled="!editForm.is_public">
+            <legend>公开方式</legend>
+            <label :class="{ active: editForm.access_mode === 'view' }"><input v-model="editForm.access_mode" type="radio" value="view" /><strong>可查看（公开）</strong><small>仅能在网页中查看：加密传输，无法下载、复制、另存或打印。</small></label>
+            <label :class="{ active: editForm.access_mode === 'download' }"><input v-model="editForm.access_mode" type="radio" value="download" /><strong>可下载</strong><small>可预览，也可下载；下载需签名票据，按访客限流，防止被刷流量。</small></label>
+          </fieldset>
+          <p v-else class="panel-note">该格式无法在网页中预览，公开后仅能通过签名票据下载。</p>
           <p class="panel-note">修改展示名称不会改变内部 storage_name，也不会使 UUID 地址失效。</p>
-          <footer><button type="button" class="button button--outline" @click="editing = null">取消</button><button class="button button--dark">保存</button></footer>
+          <footer><button type="button" class="button button--outline" @click="!saving && (editing = null)">取消</button><button class="button button--dark" :disabled="saving || ai.state.running">保存</button></footer>
         </form>
       </div>
     </Teleport>
@@ -390,7 +451,7 @@ onMounted(loadAll)
               <option v-for="folder in folders.filter((item) => item.uuid !== folderEditing?.uuid)" :key="folder.uuid" :value="folder.uuid">{{ folder.path.map((item) => item.name).join(' / ') }}</option>
             </select>
           </label>
-          <footer><button type="button" class="button button--outline" @click="folderDialogOpen = false">取消</button><button class="button button--dark">保存文件夹</button></footer>
+          <footer><button type="button" class="button button--outline" @click="folderDialogOpen = false">取消</button><button class="button button--dark" :disabled="saving || ai.state.running">保存文件夹</button></footer>
         </form>
       </div>
     </Teleport>

@@ -11,6 +11,7 @@ export interface ApiEnvelope<T> {
 }
 
 export interface Asset {
+  version: number
   uuid: string
   original_name: string
   display_name: string
@@ -23,6 +24,10 @@ export interface Asset {
   height: number | null
   duration: number | null
   is_public: boolean
+  /** download：可下载；view：仅可查看（加密传输，不提供下载），仅对可预览格式生效 */
+  access_mode?: 'download' | 'view'
+  previewable?: boolean
+  protected?: boolean
   description: string
   logical_group: string
   folder: { uuid: string; name: string } | null
@@ -61,6 +66,7 @@ export interface TaxonomyItem {
 }
 
 export interface ProjectLink {
+  translations?: Record<string, Record<string, string>>
   uuid?: string
   label: string
   url: string
@@ -273,7 +279,7 @@ export interface SiteSettings {
   navigation_items?: Array<{ label: string; to: string; kind: 'route' | 'external' }>
   home_stats?: Array<{ value: string; label: string }>
   home_copy?: Record<string, string>
-  home_capabilities?: Array<{ title: string; description: string }>
+  home_capabilities?: Array<{ title: string; description: string; epigraph?: string }>
   contact_methods?: Array<{
     type: string
     label: string
@@ -288,6 +294,8 @@ export interface SiteSettings {
   analytics_enabled?: boolean
   analytics_retention_days?: number
   analytics_notice_enabled?: boolean
+  /** 公开页面的生成式背景音乐；默认开启，访客仍可自行关闭 */
+  music_enabled?: boolean
   featured_project_count?: number
   default_seo_title?: string
   default_seo_description?: string

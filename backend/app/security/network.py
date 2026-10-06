@@ -13,9 +13,15 @@ def client_ip(request: Request) -> str:
     settings = get_settings()
     direct = request.client.host if request.client else ""
     if is_trusted_proxy(direct):
-        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-        real = request.headers.get("x-real-ip", "").strip()
-        candidate = forwarded or real or direct
+        # 从靠近服务器的一端剥离受信代理，忽略客户端伪造的最左地址。
+        chain = [part.strip() for part in request.headers.get("x-forwarded-for", "").split(",") if part.strip()]
+        candidate = direct
+        for hop in reversed(chain):
+            if not is_trusted_proxy(candidate):
+                break
+            candidate = hop
+        if not chain:
+            candidate = request.headers.get("x-real-ip", "").strip() or direct
     else:
         candidate = direct
     try:

@@ -6,6 +6,7 @@ import { track, usePageAnalytics } from '@/composables/useAnalytics'
 import { useMeta } from '@/composables/useMeta'
 import { useSiteStore } from '@/stores/site'
 import { useLocaleStore } from '@/stores/locale'
+import Marginalia from '@/components/public/Marginalia.vue'
 
 const site = useSiteStore()
 const locale = useLocaleStore()
@@ -28,6 +29,7 @@ useMeta({
       <span class="eyebrow">{{ pageContent.eyebrow }}</span>
       <h1>{{ pageContent.title }}</h1>
       <p>{{ pageContent.description }}</p>
+      <Marginalia start="iot" />
     </div>
   </section>
   <section class="contact-page">

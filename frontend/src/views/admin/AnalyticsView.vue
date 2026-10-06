@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Activity, Clock3, Eye, FileDown, GitBranch, Monitor, MousePointerClick, Play, RotateCcw, Search, UsersRound, X } from 'lucide-vue-next'
+import VisitChart from '@/components/admin/VisitChart.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -44,7 +45,7 @@ async function cleanup() {
   const value = window.prompt('删除多少天以前的分析数据？', '365')
   if (value === null) return
   const days = Number(value)
-  if (!Number.isFinite(days) || days < 0 || !window.confirm(`确定删除 ${days} 天以前的匿名访问数据吗？`)) return
+  if (!Number.isFinite(days) || days < 0 || !window.confirm(`确定删除 ${days} 天以前的访问数据吗？`)) return
   await adminApi.cleanupAnalytics(days)
   toast.show('历史分析数据已清理', 'success')
   await load()
@@ -76,7 +77,7 @@ onMounted(load)
 <template>
   <div class="admin-page">
     <header class="admin-page-heading">
-      <div><span class="eyebrow">Privacy-aware signals</span><h1>访问分析</h1><p>用匿名行为信号理解项目关注点，不识别访客身份，不推断录用意向。</p></div>
+      <div><span class="eyebrow">Privacy-aware signals</span><h1>访问分析</h1><p>仅统计已同意的访问。访客允许记录原始 IP 时，管理员可查看；时间按 UTC 统计。</p></div>
       <button class="button button--outline" @click="cleanup">清理历史数据</button>
     </header>
     <LoadingState v-if="overviewState.loading.value" :rows="8" />
@@ -88,12 +89,7 @@ onMounted(load)
       <div class="analytics-grid">
         <section class="admin-panel admin-panel--wide">
           <div class="admin-panel__heading"><div><span class="eyebrow">Timeline</span><h2>30 天访问趋势</h2></div></div>
-          <div v-if="trend.length" class="trend-chart trend-chart--large">
-            <div v-for="item in trend" :key="item.date" class="trend-bar">
-              <span :style="{ height: `${Math.max(4, (item.views / maxTrend) * 100)}%` }" /><small>{{ item.date.slice(5) }}</small><em>{{ item.views }}</em>
-            </div>
-          </div>
-          <div v-else class="chart-empty">暂无趋势数据</div>
+          <VisitChart :points="trend" />
         </section>
         <section class="admin-panel">
           <div class="admin-panel__heading"><div><span class="eyebrow">Projects</span><h2>项目访问排行</h2></div></div>
@@ -131,13 +127,15 @@ onMounted(load)
         </section>
       </div>
       <section class="admin-panel session-panel">
-        <div class="admin-panel__heading"><div><span class="eyebrow">Recent sessions</span><h2>最近匿名访问路径</h2></div></div>
-        <EmptyState v-if="!visitorState.data.value?.items.length" title="暂无访问会话" description="公开站产生访问事件后，会在此显示匿名路径。" />
+        <div class="admin-panel__heading"><div><span class="eyebrow">Recent sessions</span><h2>最近访问路径</h2></div></div>
+        <ErrorState v-if="visitorState.error.value" :message="visitorState.error.value" @retry="load" />
+        <EmptyState v-else-if="!visitorState.data.value?.items.length" title="暂无访问会话" description="访客允许统计后，会在此显示访问路径。" />
         <div v-else class="session-list">
           <button v-for="item in visitorState.data.value.items" :key="String(item.uuid)" @click="openSession(String(item.uuid))">
             <span class="score-ring" :style="{ '--score': Number(item.attention_score || 0) }">{{ item.attention_score }}</span>
             <span>
-              <strong>匿名访客 {{ String(item.visitor_uuid).slice(0, 8) }}</strong>
+              <strong>访客 {{ String(item.visitor_uuid).slice(0, 8) }}</strong>
+              <small>{{ item.ip_address || item.masked_ip || '未授权记录 IP' }}</small>
               <small>{{ [item.country, item.region, item.city].filter(Boolean).join(' · ') || '未知地区' }} · {{ deviceLabel(item.device_type) }} · {{ item.browser }} · {{ new Date(String(item.started_at)).toLocaleString() }}</small>
             </span>
             <span>{{ item.visit_count }} 次访问</span>
@@ -153,6 +151,7 @@ onMounted(load)
           <LoadingState v-if="sessionState.loading.value" :rows="8" />
           <ErrorState v-else-if="sessionState.error.value" :message="sessionState.error.value" @retry="openSession(selectedSession)" />
           <template v-else-if="sessionDetails?.session">
+            <p class="panel-note">原始 IP：{{ sessionDetails.session.ip_address || '未授权记录' }}</p>
             <div class="session-score-summary">
               <strong>{{ sessionDetails.session.attention_score }}</strong>
               <div><h3>高关注会话评分</h3><p>这是可解释的行为分数，不代表真实身份或录用意向。</p></div>

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from starlette.exceptions import HTTPException as StarletteHttpException
 
 from app.api.response import ApiError
-from app.api.routes import admin, ai, analytics, auth, public
+from app.api.routes import admin, ai, analytics, auth, public, privacy
 from app.core.config import get_settings
 from app.core.database import get_session_factory
 from app.core.logging import configure_logging
@@ -156,6 +156,7 @@ async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResp
 
 
 app.include_router(public.router, prefix="/api/v1")
+app.include_router(privacy.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(auth.setup_router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")

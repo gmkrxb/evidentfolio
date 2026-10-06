@@ -16,6 +16,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -78,6 +79,7 @@ class AISetting(Base, TimestampMixin):
     encrypted_api_key: Mapped[str] = mapped_column(Text, default="")
     model: Mapped[str] = mapped_column(String(200), default="")
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    max_context_chars: Mapped[int] = mapped_column(Integer, default=32000)
 
 
 project_tags = Table(
@@ -181,6 +183,7 @@ class Project(Base, UuidMixin, TimestampMixin):
 
 class ProjectLink(Base, UuidMixin, TimestampMixin):
     __tablename__ = "project_links"
+    translations: Mapped[dict] = mapped_column(JSON, default=dict)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(
@@ -238,6 +241,8 @@ class ProjectAlbum(Base, UuidMixin, TimestampMixin):
 class Asset(Base, UuidMixin, TimestampMixin):
     __tablename__ = "assets"
 
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     original_name: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str] = mapped_column(String(255))
@@ -253,6 +258,8 @@ class Asset(Base, UuidMixin, TimestampMixin):
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # download：公开后可预览、可下载；view：仅可在网页中查看（加密传输，不提供下载）
+    access_mode: Mapped[str] = mapped_column(String(16), default="download", server_default="download")
     description: Mapped[str] = mapped_column(Text, default="")
     logical_group: Mapped[str] = mapped_column(String(120), default="")
     folder_id: Mapped[int | None] = mapped_column(
@@ -287,6 +294,7 @@ class AssetFolder(Base, UuidMixin, TimestampMixin):
 
 class ProjectAlbumAsset(Base, UuidMixin, TimestampMixin):
     __tablename__ = "project_album_assets"
+    translations: Mapped[dict] = mapped_column(JSON, default=dict)
     __table_args__ = (UniqueConstraint("album_id", "asset_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -336,6 +344,7 @@ class Certificate(Base, UuidMixin, TimestampMixin):
 
 class ProjectAsset(Base, UuidMixin, TimestampMixin):
     __tablename__ = "project_assets"
+    translations: Mapped[dict] = mapped_column(JSON, default=dict)
     __table_args__ = (UniqueConstraint("project_id", "asset_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -354,6 +363,11 @@ class ProjectAsset(Base, UuidMixin, TimestampMixin):
 
 class Resume(Base, UuidMixin, TimestampMixin):
     __tablename__ = "resumes"
+    __table_args__ = (
+        Index("uq_resumes_single_default", "is_default", unique=True,
+              sqlite_where=text("is_default = 1")),
+    )
+    translations: Mapped[dict] = mapped_column(JSON, default=dict)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(160))
@@ -409,6 +423,8 @@ class Visitor(Base, UuidMixin):
 
 class VisitorSession(Base, UuidMixin):
     __tablename__ = "visitor_sessions"
+
+    encrypted_ip: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     visitor_id: Mapped[int] = mapped_column(

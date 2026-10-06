@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ThemeControl from '@/components/ui/ThemeControl.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
@@ -53,6 +54,7 @@ async function submit() {
 </script>
 
 <template>
+  <div class="login-theme"><ThemeControl /></div>
   <main class="login-page">
     <section class="login-brand-panel">
       <RouterLink to="/" class="public-brand public-brand--light">
@@ -62,7 +64,7 @@ async function submit() {
       <div>
         <span class="eyebrow">Private control room</span>
         <h1>管理作品，<br />观察真实关注。</h1>
-        <p>内容、文件、简历和匿名访问行为都由你自己管理。</p>
+        <p>内容、文件、简历和经同意的访问行为都由你自己管理。</p>
       </div>
       <ul>
         <li><ShieldCheck :size="18" />HttpOnly 会话与操作审计</li>

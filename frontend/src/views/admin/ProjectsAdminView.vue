@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Copy, Eye, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-vue-next'
+import { Copy, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-vue-next'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
@@ -71,21 +71,24 @@ onMounted(load)
       <RouterLink class="button button--dark button--small" to="/admin/projects/new">新建项目</RouterLink>
     </EmptyState>
     <div v-else class="admin-table-wrap">
-      <table class="admin-table">
+      <table class="admin-table project-admin-table">
+        <colgroup><col class="project-col-check" /><col /><col class="project-col-category" /><col class="project-col-status" /><col class="project-col-date" /><col class="project-col-order" /><col class="project-col-actions" /></colgroup>
         <thead><tr><th><input type="checkbox" :checked="allSelected" aria-label="全选" @change="toggleAll" /></th><th>项目</th><th>分类</th><th>状态</th><th>时间</th><th>排序</th><th class="table-actions">操作</th></tr></thead>
         <tbody>
           <tr v-for="item in state.data.value.items" :key="item.uuid">
             <td><input v-model="selected" type="checkbox" :value="item.uuid" :aria-label="`选择${item.title}`" /></td>
-            <td data-label="项目"><strong>{{ item.title }}</strong><small>{{ item.role }}</small></td>
+            <td data-label="项目"><div class="project-table-title"><RouterLink :to="`/admin/projects/${item.uuid}`"><strong>{{ item.title }}</strong></RouterLink><small v-if="item.role">{{ item.role }}</small></div></td>
             <td data-label="分类">{{ item.category?.name || '未分类' }}</td>
             <td data-label="状态"><span class="status-pill" :class="`status-pill--${item.status}`">{{ projectStatusLabel(item.status) }}</span></td>
-            <td data-label="时间">{{ item.start_date }} — {{ item.end_date }}</td>
+            <td data-label="时间">{{ [item.start_date, item.end_date].filter(Boolean).join(' — ') || '未填写' }}</td>
             <td data-label="排序">{{ item.sort_order }}</td>
             <td class="table-actions" data-label="操作">
-              <RouterLink :to="`/projects/${item.uuid}`" target="_blank" title="预览"><Eye :size="17" /></RouterLink>
-              <button title="复制" @click="duplicate(item)"><Copy :size="17" /></button>
-              <RouterLink :to="`/admin/projects/${item.uuid}`" title="编辑"><MoreHorizontal :size="19" /></RouterLink>
-              <button class="danger-text" title="删除" @click="remove(item)"><Trash2 :size="17" /></button>
+              <div class="row-actions">
+              <RouterLink :to="`/admin/projects/${item.uuid}`" class="row-edit" :aria-label="`编辑 ${item.title}`"><Pencil :size="16" /><span>编辑</span></RouterLink>
+              <RouterLink :to="`/projects/${item.uuid}`" target="_blank" title="预览" :aria-label="`预览 ${item.title}`"><Eye :size="17" /></RouterLink>
+              <button title="复制" :aria-label="`复制 ${item.title}`" @click="duplicate(item)"><Copy :size="17" /></button>
+              <button class="danger-text" title="删除" :aria-label="`删除 ${item.title}`" @click="remove(item)"><Trash2 :size="17" /></button>
+              </div>
             </td>
           </tr>
         </tbody>

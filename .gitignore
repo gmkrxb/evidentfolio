@@ -22,3 +22,7 @@ output/playwright/
 .playwright-cli/
 .DS_Store
 Thumbs.db
+
+# 本地发布产物与设计过程文件
+release/
+Claude outputs/

@@ -75,6 +75,7 @@ class ProjectService:
         duplicate.links = [
             ProjectLink(
                 label=link.label,
+                translations=dict(link.translations or {}),
                 url=link.url,
                 link_type=link.link_type,
                 sort_order=link.sort_order,
@@ -110,6 +111,7 @@ class ProjectService:
                     ProjectAlbumAsset(
                         asset=relation.asset,
                         caption=relation.caption,
+                        translations=dict(relation.translations or {}),
                         sort_order=relation.sort_order,
                     )
                     for relation in album.assets
@@ -122,6 +124,7 @@ class ProjectService:
                 asset=relation.asset,
                 usage=relation.usage,
                 caption=relation.caption,
+                        translations=dict(relation.translations or {}),
                 sort_order=relation.sort_order,
             )
             for relation in project.assets
@@ -140,6 +143,7 @@ class ProjectService:
         project.links = [
             ProjectLink(
                 label=str(link.label),
+                translations=dict(link.translations),
                 url=str(link.url),
                 link_type=link.link_type,
                 sort_order=link.sort_order,

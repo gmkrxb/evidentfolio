@@ -24,6 +24,15 @@
 
 ![EvidentFolio home page](docs/images/home-desktop.png)
 
+## Latest update (2026-10-06)
+
+- Redesigned public pages with automatic image collages, reading progress, responsive layouts, localized text transitions, and light/dark themes.
+- Site-wide AI translation with module-level streaming progress, structured fields, existing-translation reuse, and configurable rolling context.
+- Unified asset selection and uploads, attachment replacement with stable links, and asset access modes.
+- Privacy preferences, refreshed analytics charts, and improved admin lists and forms.
+- Fixed default résumé conflicts and added a compatibility `app.seed` entry point so legacy runtime restarts no longer insert default résumés.
+- Added incremental deployment scripts and database migrations; personal data, uploads, and local release bundles stay outside the repository.
+
 ## Why EvidentFolio?
 
 Hiring managers rarely need another list of technologies. They need a fast answer to four questions: what problem did you solve, what exactly did you own, how did you make decisions, and what evidence supports the result?
@@ -36,7 +45,7 @@ EvidentFolio is a self-hosted portfolio system built around that reading flow. I
 - Asset library with folders, global search, SHA-256 duplicate detection, safe previews, dependency checks, stable UUID URLs, thumbnails, video metadata, and Range requests.
 - Multiple résumé versions with progressive PDF.js rendering, page progress, zoom, fullscreen, download analytics, CMaps, and no browser PDF toolbar dependency.
 - Credentials and honors linked bidirectionally to projects, with image/PDF previews and lightbox viewing.
-- Anonymous attention analytics: visits, sessions, paths, dwell time, devices, referrers, UTM data, downloads, media progress, and an explainable high-attention score.
+- Attention analytics with privacy preferences: visits, sessions, paths, dwell time, devices, referrers, UTM data, downloads, media progress, and an explainable high-attention score.
 - Chinese/English routes and database-backed content translations; fixed UI copy lives in extendable language packages.
 - Optional OpenAI-compatible AI configuration for model discovery, streaming translation, and structured résumé-to-draft import.
 - HttpOnly sessions, CSRF protection, Argon2 passwords, login throttling, audit logs, trusted-proxy IP handling, and safe upload validation.

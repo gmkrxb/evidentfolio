@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AssetPickerField from '@/components/admin/AssetPickerField.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { ArrowDown, ArrowUp, Languages, Plus, Save, Trash2 } from 'lucide-vue-next'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -9,7 +10,9 @@ import { useToastStore } from '@/stores/toast'
 import type { Asset, SiteSettings } from '@/types'
 import IconPicker from '@/components/icons/IconPicker.vue'
 import { clonePlain } from '@/utils/clone'
-import { readSse } from '@/utils/sse'
+import { useAiTask } from '@/composables/useAiTask'
+import AiProgressPanel from '@/components/admin/AiProgressPanel.vue'
+const ai = useAiTask()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -22,7 +25,7 @@ const directions = ref('')
 const assets = ref<Asset[]>([])
 const navigation = ref<Array<{ label: string; to: string; kind: 'route' | 'external' }>>([])
 const homeStats = ref<Array<{ value: string; label: string }>>([])
-const capabilities = ref<Array<{ title: string; description: string }>>([])
+const capabilities = ref<Array<{ title: string; description: string; epigraph?: string }>>([])
 const contacts = ref<Array<{
   type: string
   label: string
@@ -43,6 +46,7 @@ const homeCopy = reactive<Record<string, string>>({
   projects_eyebrow: '', projects_title: '', projects_description: '',
   capabilities_eyebrow: '', capabilities_title: '', capabilities_description: '',
   categories_eyebrow: '', categories_title: '', contact_eyebrow: '', contact_description: '',
+  manifesto: '', closing: '', footer_quote: '', agents_eyebrow: '', agents_title: '', agents_description: '',
 })
 const pageLabels: Record<string, string> = {
   projects: '项目页',
@@ -55,7 +59,7 @@ const form = reactive<SiteSettings>({
   email: '', github_url: '', gitee_url: '', location: '', footer_text: '', footer_eyebrow: '',
   footer_heading: '', hero_eyebrow: '', hero_focus_label: '', hero_focus_value: '',
   default_seo_title: '', default_seo_description: '', analytics_enabled: true,
-  analytics_retention_days: 365, analytics_notice_enabled: true, featured_project_count: 3,
+  analytics_retention_days: 365, analytics_notice_enabled: true, music_enabled: true, featured_project_count: 3,
 })
 const englishSettings = reactive<SiteSettings>({
   site_name: '', person_name: '', headline: '', bio: '', current_identity: '', research_directions: [],
@@ -65,7 +69,7 @@ const englishSettings = reactive<SiteSettings>({
 const englishDirections = ref('')
 const englishNavigation = ref<Array<{ label: string; to: string; kind: 'route' | 'external' }>>([])
 const englishHomeStats = ref<Array<{ value: string; label: string }>>([])
-const englishCapabilities = ref<Array<{ title: string; description: string }>>([])
+const englishCapabilities = ref<Array<{ title: string; description: string; epigraph?: string }>>([])
 const englishContacts = ref<typeof contacts.value>([])
 const englishPageContent = reactive<Record<string, { eyebrow: string; title: string; description: string }>>({
   projects: { eyebrow: '', title: '', description: '' }, resumes: { eyebrow: '', title: '', description: '' },
@@ -78,7 +82,7 @@ async function load() {
   try {
     const [settings, assetResult] = await Promise.all([
       adminApi.settings(),
-      adminApi.assets({ category: 'images', page_size: 100 }),
+      adminApi.allAssets({ category: 'images' }),
     ])
     Object.assign(form, settings)
     Object.assign(englishSettings, clonePlain(settings.translations?.en || {}))
@@ -104,6 +108,7 @@ async function load() {
   }
 }
 async function save() {
+  if (saving.value || loading.value || translating.value) return
   saving.value = true
   error.value = ''
   try {
@@ -137,8 +142,10 @@ async function save() {
 }
 
 async function translateSettings() {
+  const unchanged = ai.guard(() => ({ form, englishSettings, directions: directions.value, englishDirections: englishDirections.value, navigation: navigation.value, englishNavigation: englishNavigation.value, homeStats: homeStats.value, englishHomeStats: englishHomeStats.value, capabilities: capabilities.value, englishCapabilities: englishCapabilities.value, contacts: contacts.value, englishContacts: englishContacts.value, pageContent, englishPageContent, homeCopy, englishHomeCopy }))
   translating.value = true; error.value = ''
   try {
+    const fromEnglish = settingsLocale.value === 'en'
     const content = {
       site_name: form.site_name, person_name: form.person_name, headline: form.headline, bio: form.bio,
       current_identity: form.current_identity, research_directions: directions.value.split('\n').filter(Boolean),
@@ -149,22 +156,25 @@ async function translateSettings() {
       home_stats: homeStats.value, home_capabilities: capabilities.value, contact_methods: contacts.value,
       page_content: pageContent, home_copy: homeCopy,
     }
-    let result: Record<string, any> | null = null
-    await readSse(await adminApi.aiStream('translate', { source_locale: 'zh-CN', target_locale: 'en', entity_type: 'site_settings', content }), (event) => {
-      if (event.type === 'result') result = event.data || null
-    })
-    if (!result) throw new Error('AI 未返回翻译结果')
+    const englishContent = {
+      ...Object.fromEntries(Object.keys(content).map((key) => [key, (englishSettings as Record<string, unknown>)[key] ?? ''])),
+      research_directions: englishDirections.value.split('\n').filter(Boolean), navigation_items: englishNavigation.value,
+      home_stats: englishHomeStats.value, home_capabilities: englishCapabilities.value, contact_methods: englishContacts.value,
+      page_content: englishPageContent, home_copy: englishHomeCopy,
+    }
+    const source = fromEnglish ? englishContent : content
+    const result = await ai.run('translate', { source_locale: fromEnglish ? 'en' : 'zh-CN', target_locale: fromEnglish ? 'zh-CN' : 'en', entity_type: 'site', content: source, existing_translation: fromEnglish ? content : englishContent }, unchanged)
     const translated = result as Record<string, any>
-    Object.assign(englishSettings, translated)
-    englishDirections.value = Array.isArray(translated.research_directions) ? translated.research_directions.join('\n') : ''
-    englishNavigation.value = clonePlain(translated.navigation_items || [])
-    englishHomeStats.value = clonePlain(translated.home_stats || [])
-    englishCapabilities.value = clonePlain(translated.home_capabilities || [])
-    englishContacts.value = clonePlain(translated.contact_methods || [])
-    Object.assign(englishPageContent, clonePlain(translated.page_content || {}))
-    Object.assign(englishHomeCopy, clonePlain(translated.home_copy || {}))
-    settingsLocale.value = 'en'
-    toast.show('英文网站内容已生成，请检查后保存', 'success')
+    Object.assign(fromEnglish ? form : englishSettings, translated)
+    ;(fromEnglish ? directions : englishDirections).value = translated.research_directions.join('\n')
+    ;(fromEnglish ? navigation : englishNavigation).value = clonePlain(translated.navigation_items)
+    ;(fromEnglish ? homeStats : englishHomeStats).value = clonePlain(translated.home_stats)
+    ;(fromEnglish ? capabilities : englishCapabilities).value = clonePlain(translated.home_capabilities)
+    ;(fromEnglish ? contacts : englishContacts).value = clonePlain(translated.contact_methods)
+    Object.assign(fromEnglish ? pageContent : englishPageContent, clonePlain(translated.page_content))
+    Object.assign(fromEnglish ? homeCopy : englishHomeCopy, clonePlain(translated.home_copy))
+    settingsLocale.value = fromEnglish ? 'zh-CN' : 'en'
+    toast.show('翻译已生成，请检查后保存', 'success')
   } catch (cause) { error.value = cause instanceof Error ? cause.message : 'AI 翻译失败' }
   finally { translating.value = false }
 }
@@ -193,10 +203,11 @@ onMounted(load)
 </script>
 
 <template>
+  <Teleport to="body"><aside v-if="ai.state.visible" class="ai-task-dock"><AiProgressPanel :task="ai.state" :body="ai.body.value" @cancel="ai.cancel" @close="ai.state.visible = false" /></aside></Teleport>
   <div class="admin-page">
     <header class="admin-page-heading">
       <div><span class="eyebrow">Site configuration</span><h1>网站设置</h1><p>公开端身份信息、SEO、分析与内容展示策略。</p></div>
-      <button class="button button--dark" :disabled="saving" @click="save"><Save :size="17" />{{ saving ? '保存中…' : '保存设置' }}</button>
+      <button class="button button--dark" :disabled="saving || loading || translating" @click="save"><Save :size="17" />{{ saving ? '保存中…' : '保存设置' }}</button>
     </header>
     <LoadingState v-if="loading" :rows="10" />
     <ErrorState v-else-if="error && !form.site_name" :message="error" @retry="load" />
@@ -204,7 +215,7 @@ onMounted(load)
       <section class="editor-language-bar settings-language-bar">
         <div class="language-tabs"><button type="button" :class="{ active: settingsLocale === 'zh-CN' }" @click="settingsLocale = 'zh-CN'">中文设置</button><button type="button" :class="{ active: settingsLocale === 'en' }" @click="settingsLocale = 'en'">English settings</button></div>
         <label>网站第一语言<select v-model="form.primary_language"><option value="zh-CN">中文</option><option value="en">English</option></select></label>
-        <button type="button" class="button button--outline" :disabled="translating" @click="translateSettings"><Languages :size="16" />{{ translating ? '翻译中…' : 'AI 生成英文设置' }}</button>
+        <button type="button" class="button button--outline" :disabled="translating" @click="translateSettings"><Languages :size="16" />{{ translating ? '翻译中…' : settingsLocale === 'en' ? 'AI 翻译为中文' : 'AI 翻译为英文' }}</button>
       </section>
       <section v-if="settingsLocale === 'en'" class="form-section form-section--translation">
         <div class="form-section__heading"><span>EN</span><div><h2>English public content</h2><p>English fields override the primary content under /en; blank fields fall back safely.</p></div></div>
@@ -256,10 +267,7 @@ onMounted(load)
         <div class="form-grid">
           <label>品牌文字<input v-model="form.brand_mark_text" maxlength="8" placeholder="例如 GMK" /></label>
           <label>品牌图标
-            <select v-model="form.brand_icon_asset_uuid">
-              <option value="">使用品牌文字</option>
-              <option v-for="asset in assets" :key="asset.uuid" :value="asset.uuid">{{ asset.display_name }}</option>
-            </select>
+            <AssetPickerField v-model="form.brand_icon_asset_uuid" :assets="assets" accept="image/*" title="选择品牌图标" placeholder="使用品牌文字" />
           </label>
         </div>
         <div class="repeat-list-heading"><strong>导航项目</strong><button type="button" class="button button--outline button--small" @click="navigation.push({ label: '', to: '/', kind: 'route' })"><Plus :size="15" />添加</button></div>
@@ -289,11 +297,18 @@ onMounted(load)
           <label>分类区标题<input v-model="homeCopy.categories_title" /></label>
           <label>联系区眉题<input v-model="homeCopy.contact_eyebrow" /></label>
           <label class="span-2">联系区说明<textarea v-model="homeCopy.contact_description" rows="3" /></label>
+          <label class="span-2">首页宣言（每行一句，滚动时逐字着墨；留空使用默认诗句）<textarea v-model="homeCopy.manifesto" rows="4" /></label>
+          <label class="span-2">结尾寄语（每行一句；留空使用默认）<textarea v-model="homeCopy.closing" rows="2" /></label>
+          <label class="span-2">页脚题辞（全站页脚的一句话；留空使用默认）<input v-model="homeCopy.footer_quote" /></label>
+          <label>协作区眉题<input v-model="homeCopy.agents_eyebrow" /></label>
+          <label>协作区标题<input v-model="homeCopy.agents_title" /></label>
+          <label class="span-2">协作区说明（多智能体章节）<textarea v-model="homeCopy.agents_description" rows="3" /></label>
         </div>
         <div class="repeat-list-heading"><strong>能力介绍</strong><button type="button" class="button button--outline button--small" @click="capabilities.push({ title: '', description: '' })"><Plus :size="15" />添加</button></div>
         <div v-for="(item, index) in capabilities" :key="index" class="repeat-section repeat-section--compact">
           <div><input v-model="item.title" placeholder="能力标题" /><button type="button" class="icon-button danger-text" @click="capabilities.splice(index, 1)"><Trash2 :size="16" /></button></div>
           <textarea v-model="item.description" rows="2" placeholder="能力说明" />
+          <input v-model="item.epigraph" placeholder="首页图版题辞（可选，一句诗意的话；留空使用默认）" />
         </div>
       </section>
       <section class="form-section">
@@ -351,9 +366,14 @@ onMounted(load)
         <label>数据保留天数<input v-model.number="form.analytics_retention_days" type="number" min="0" max="3650" /></label>
         <p class="panel-note">运行级的允许文件类型、上传大小和可信代理由挂载的 Python 配置文件管理，网站内容设置不会覆盖安全边界。</p>
       </section>
+      <section class="form-section">
+        <div class="form-section__heading"><span>08</span><div><h2>声音</h2><p>公开页面的生成式钢琴音乐：随访客的滚动、点击与所在章节变化，跨页面无缝衔接。</p></div></div>
+        <label class="check-label"><input v-model="form.music_enabled" type="checkbox" />公开页面启用背景音乐</label>
+        <p class="panel-note">开启后，访客首次点击页面时开始播放，并可随时通过导航栏的声音按钮关闭（偏好保存在访客本机）。关闭后，导航栏不再显示声音按钮。</p>
+      </section>
       </template>
       <div v-if="error" class="form-error">{{ error }}</div>
-      <button class="button button--dark settings-save" :disabled="saving"><Save :size="17" />保存全部设置</button>
+      <button class="button button--dark settings-save" :disabled="saving || loading || translating"><Save :size="17" />保存全部设置</button>
     </form>
   </div>
 </template>

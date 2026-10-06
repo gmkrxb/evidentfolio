@@ -1,7 +1,12 @@
+import { readPreference, writePreference } from '@/utils/storage'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { authApi } from '@/api/admin'
+import { useSiteStore } from '@/stores/site'
+import { initialScroll, isLocaleNavigation, waitForPageContent } from '@/utils/pageNavigation'
+
+if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
 
 function publicChildren(prefix = '') {
   return [
@@ -13,15 +18,24 @@ function publicChildren(prefix = '') {
     { path: 'certificates/:uuid', name: `${prefix}certificate-detail`, component: () => import('@/views/public/CertificateDetailView.vue') },
     { path: 'contact', name: `${prefix}contact`, component: () => import('@/views/public/ContactView.vue') },
     { path: 'assets/:uuid', name: `${prefix}asset-viewer`, component: () => import('@/views/public/AssetViewerView.vue') },
+    { path: ':pathMatch(.*)*', name: `${prefix}not-found`, component: () => import('@/views/NotFoundView.vue') },
   ]
 }
 
 const router = createRouter({
   history: createWebHistory(),
-  scrollBehavior(to, from, savedPosition) {
-    if (savedPosition) return savedPosition
-    if (to.hash) return { el: to.hash, top: 90, behavior: 'smooth' }
-    if (to.path !== from.path) return { top: 0 }
+  async scrollBehavior(to, from, savedPosition) {
+    if (isLocaleNavigation(to.path, from.path) && useLocaleStore().switching) return false
+    const position = initialScroll(!from.matched.length, to.hash, savedPosition)
+    if (position || to.hash) {
+      if (from.matched.length || to.hash) {
+        if (!to.path.startsWith('/admin')) await useSiteStore().load().catch(() => undefined)
+        await waitForPageContent()
+      }
+      if (position) return { ...position, behavior: 'instant' }
+    }
+    if (to.hash) return { el: to.hash, top: (document.querySelector<HTMLElement>('.public-header')?.offsetHeight || 72) + 28, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }
+    if (to.path !== from.path) return { top: 0, behavior: 'instant' }
   },
   routes: [
     {
@@ -67,23 +81,22 @@ const router = createRouter({
         { path: 'audit-logs', name: 'admin-audit', component: () => import('@/views/admin/AuditLogsView.vue') },
       ],
     },
-    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/NotFoundView.vue') },
   ],
 })
 
 router.beforeEach(async (to) => {
-  if (!to.path.startsWith('/admin') && !localStorage.getItem('evidentfolio_setup_complete')) {
+  if (!to.path.startsWith('/admin') && !readPreference('evidentfolio_setup_complete')) {
     try {
       const setup = await authApi.setupStatus()
       if (setup.required) return { name: 'admin-login', query: { setup: '1' } }
-      localStorage.setItem('evidentfolio_setup_complete', '1')
+      writePreference('evidentfolio_setup_complete', '1')
     } catch {
-      // Public error states handle an unavailable API without trapping navigation.
+      // 接口异常由页面展示，不阻断导航。
     }
   }
   const locale = useLocaleStore()
   if (!to.path.startsWith('/admin')) {
-    if (to.path === '/' && !localStorage.getItem('portfolio_locale') && !navigator.language.toLowerCase().startsWith('zh')) {
+    if (to.path === '/' && !readPreference('portfolio_locale') && !navigator.language.toLowerCase().startsWith('zh')) {
       return '/en'
     }
     locale.syncPath(to.path)

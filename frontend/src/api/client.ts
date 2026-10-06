@@ -1,3 +1,4 @@
+import { readPreference, writePreference } from '@/utils/storage'
 import axios, { AxiosError, type AxiosProgressEvent, type AxiosRequestConfig } from 'axios'
 import type { ApiEnvelope } from '@/types'
 
@@ -35,7 +36,7 @@ const client = axios.create({
 })
 
 client.interceptors.request.use((config) => {
-  config.headers.set('Accept-Language', localStorage.getItem('portfolio_locale') || navigator.language || 'zh-CN')
+  config.headers.set('Accept-Language', readPreference('portfolio_locale') || navigator.language || 'zh-CN')
   const method = config.method?.toLowerCase()
   if (method && ['post', 'put', 'patch', 'delete'].includes(method)) {
     const csrf = cookieValue('portfolio_csrf')
@@ -64,6 +65,7 @@ async function request<T>(config: AxiosRequestConfig): Promise<T> {
       const response = await client.request<ApiEnvelope<T>>(config)
       return response.data.data
     } catch (error) {
+      if (config.signal?.aborted) throw error
       const status = error instanceof ApiClientError ? error.status : 0
       if (!retryable || attempt >= 3 || ![0, 502, 503, 504].includes(status)) throw error
       const delays = [350, 1100, 3000]
@@ -101,16 +103,16 @@ export const api = {
       onUploadProgress: onProgress,
     })
   },
-  async stream(url: string, data: unknown): Promise<Response> {
+  async stream(url: string, data: unknown, signal?: AbortSignal): Promise<Response> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
-      'Accept-Language': localStorage.getItem('portfolio_locale') || navigator.language || 'zh-CN',
+      'Accept-Language': readPreference('portfolio_locale') || navigator.language || 'zh-CN',
     }
     const csrf = cookieValue('portfolio_csrf')
     if (csrf) headers['X-CSRF-Token'] = csrf
     const response = await fetch(`${API_BASE_URL}${url}`, {
-      method: 'POST', credentials: 'include', headers, body: JSON.stringify(data),
+      method: 'POST', credentials: 'include', headers, body: JSON.stringify(data), signal,
     })
     if (!response.ok) {
       const payload = await response.json().catch(() => null) as ApiEnvelope<unknown> | null

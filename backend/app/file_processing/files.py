@@ -103,7 +103,8 @@ def ffprobe_path(ffmpeg_path: str) -> str:
 
 
 def sniff_mime(path: Path, declared: str, extension: str) -> str:
-    header = path.read_bytes()[:32]
+    with path.open("rb") as source:
+        header = source.read(32)
     if header.startswith(b"%PDF-"):
         return "application/pdf"
     if header.startswith(b"\x89PNG\r\n\x1a\n"):

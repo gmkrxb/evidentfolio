@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-vue-next'
 import type { ProjectAsset } from '@/types'
+import AssetMedia from '@/components/content/AssetMedia.vue'
 
 const props = defineProps<{ items: ProjectAsset[]; index: number | null }>()
 const emit = defineEmits<{ close: []; change: [index: number] }>()
@@ -74,8 +75,9 @@ onBeforeUnmount(() => {
           <ChevronLeft :size="28" />
         </button>
         <figure>
-          <img
-            :src="current.asset.content_url"
+          <AssetMedia
+            :asset="current.asset"
+            kind="image"
             :alt="current.caption || current.asset.description || current.asset.display_name"
             :style="{ transform: `scale(${zoom})` }"
           />

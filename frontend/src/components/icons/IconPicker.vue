@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Image, Search, X } from 'lucide-vue-next'
+import AssetPickerField from '@/components/admin/AssetPickerField.vue'
 import ConfiguredIcon from './ConfiguredIcon.vue'
 import { iconRegistry } from '@/icons/registry'
 import type { Asset } from '@/types'
@@ -51,7 +52,7 @@ function updateSvg(value: string) {
     </button>
     <Transition name="picker-expand">
       <div v-if="expanded" class="icon-picker__panel">
-        <label class="search-field"><Search :size="15" /><span class="sr-only">搜索 Element 图标</span><input v-model="search" placeholder="搜索 Element 图标名称" /></label>
+        <label class="search-field"><Search :size="15" /><span class="sr-only">搜索图标</span><input v-model="search" placeholder="搜索图标名称" /></label>
         <div class="icon-picker__grid">
           <button v-for="name in names" :key="name" type="button" :class="{ active: iconName === name }" :title="name" @click="choose(name)">
             <ConfiguredIcon :icon-name="name" :size="20" /><span>{{ name }}</span>
@@ -59,10 +60,7 @@ function updateSvg(value: string) {
         </div>
         <label>
           <span><Image :size="15" />上传图片资源</span>
-          <select :value="imageUuid" @change="chooseImage(($event.target as HTMLSelectElement).value)">
-            <option value="">不使用上传图片</option>
-            <option v-for="asset in assets" :key="asset.uuid" :value="asset.uuid">{{ asset.display_name }}</option>
-          </select>
+          <AssetPickerField :model-value="imageUuid" :assets="assets" accept="image/*" title="选择图标图片" @update:model-value="chooseImage" />
         </label>
         <label>
           安全 SVG 代码
@@ -78,4 +76,3 @@ function updateSvg(value: string) {
     </Transition>
   </div>
 </template>
-

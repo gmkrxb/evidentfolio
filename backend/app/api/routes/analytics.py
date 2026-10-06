@@ -9,6 +9,8 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.schemas.analytics import ALLOWED_EVENT_TYPES, AnalyticsBatchInput
 from app.security.network import client_ip, ip_hash
+from app.security.privacy import CONSENT_COOKIE, decode_consent
+from app.models import SiteSetting
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -23,7 +25,10 @@ def events(
     db: Session = Depends(get_db),
 ) -> dict:
     settings = get_settings()
-    if not settings.ANALYTICS_ENABLED:
+    consent = decode_consent(request.cookies.get(CONSENT_COOKIE, ""))
+    site = db.get(SiteSetting, 1)
+    response.headers["Cache-Control"] = "no-store"
+    if not consent.get("analytics") or not settings.ANALYTICS_ENABLED or (site and not site.data.get("analytics_enabled", True)):
         return ok(request, {"accepted": 0, "disabled": True})
     invalid = [item.event_type for item in payload.events if item.event_type not in ALLOWED_EVENT_TYPES]
     if invalid:
@@ -39,6 +44,7 @@ def events(
         raw_ip,
         user_agent,
         payload.events[0],
+        store_raw_ip=bool(consent.get("raw_ip")) and settings.RAW_IP_STORAGE_ENABLED,
     )
     record_events(db, visitor, session, payload.events, digest, user_agent)
     db.commit()

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { readPreference, writePreference } from '@/utils/storage'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { Grid2X2, List, Search, SlidersHorizontal, X } from 'lucide-vue-next'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectCard from '@/components/public/ProjectCard.vue'
@@ -9,24 +10,26 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import { publicApi } from '@/api/public'
 import { useAsyncState } from '@/composables/useAsync'
+import { useLocaleReload } from '@/composables/useLocaleReload'
 import { track, usePageAnalytics } from '@/composables/useAnalytics'
 import { useMeta } from '@/composables/useMeta'
 import { useSiteStore } from '@/stores/site'
 import { useLocaleStore } from '@/stores/locale'
 import type { Project } from '@/types'
+import Marginalia from '@/components/public/Marginalia.vue'
 
 const route = useRoute()
 const router = useRouter()
 const site = useSiteStore()
 const locale = useLocaleStore()
-const state = useAsyncState<{ items: Project[]; total: number }>()
+const state = useAsyncState<{ items: Project[]; total: number }>({ keepPreviousData: true })
 const q = ref(String(route.query.q || ''))
 const category = ref(String(route.query.category || ''))
 const selectedTags = ref<string[]>(
   Array.isArray(route.query.tags) ? route.query.tags.map(String) : route.query.tags ? [String(route.query.tags)] : [],
 )
 const sort = ref(String(route.query.sort || 'featured'))
-const mode = ref<'grid' | 'list'>((localStorage.getItem('project-view-mode') as 'grid' | 'list') || 'grid')
+const mode = ref<'grid' | 'list'>((readPreference('project-view-mode') as 'grid' | 'list') || 'grid')
 const pageContent = computed(() => site.settings.page_content?.projects || {
   eyebrow: 'Projects',
   title: locale.t('projects'),
@@ -45,8 +48,8 @@ const sortOptions = computed(() => [
 let debounce = 0
 
 async function load() {
-  await site.load().catch(() => undefined)
   await state.run(async (signal) => {
+    await site.load().catch(() => undefined)
     const result = await publicApi.projects(
       { q: q.value || undefined, category: category.value || undefined, tags: selectedTags.value, sort: sort.value, page_size: 50 },
       signal,
@@ -84,12 +87,28 @@ function clearFilters() {
   selectedTags.value = []
   sort.value = 'featured'
 }
-function setMode(next: 'grid' | 'list') {
-  mode.value = next
-  localStorage.setItem('project-view-mode', next)
+/**
+ * 网格 ↔ 列表：支持视图过渡的浏览器里，每张卡片从旧位置、旧尺寸平滑变形到新位置；
+ * 其余浏览器（或减少动态效果时）直接切换。
+ */
+type ViewTransitionDocument = Document & { startViewTransition?: (update: () => Promise<void> | void) => { finished: Promise<void> } }
+const morphing = ref(false)
+async function setMode(next: 'grid' | 'list') {
+  if (next === mode.value) return
+  const apply = async () => {
+    mode.value = next
+    writePreference('project-view-mode', next)
+    await nextTick()
+  }
+  const doc = document as ViewTransitionDocument
+  if (!doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { await apply(); return }
+  morphing.value = true
+  await nextTick()
+  try { await doc.startViewTransition(apply).finished } finally { morphing.value = false }
 }
 watch([category, selectedTags, sort], syncQuery, { deep: true })
 watch(q, syncQuery)
+useLocaleReload(load)
 onMounted(load)
 usePageAnalytics('project_list')
 useMeta({
@@ -104,6 +123,7 @@ useMeta({
       <span class="eyebrow">{{ pageContent.eyebrow }}</span>
       <h1>{{ pageContent.title }}</h1>
       <p>{{ pageContent.description }}</p>
+      <Marginalia start="computing" />
     </div>
   </section>
   <section class="projects-browser">
@@ -117,9 +137,9 @@ useMeta({
         </label>
         <BaseSelect v-model="category" :label="locale.t('allCategories')" :options="categoryOptions" />
         <BaseSelect v-model="sort" :label="locale.t('titleSort')" :options="sortOptions" />
-        <div class="view-switch" role="group">
-          <button :class="{ active: mode === 'grid' }" :aria-label="locale.t('gridView')" @click="setMode('grid')"><Grid2X2 :size="17" /></button>
-          <button :class="{ active: mode === 'list' }" :aria-label="locale.t('listView')" @click="setMode('list')"><List :size="18" /></button>
+        <div v-segment class="view-switch" role="group">
+          <button :class="{ active: mode === 'grid' }" :aria-pressed="mode === 'grid'" :aria-label="locale.t('gridView')" @click="setMode('grid')"><Grid2X2 :size="17" /></button>
+          <button :class="{ active: mode === 'list' }" :aria-pressed="mode === 'list'" :aria-label="locale.t('listView')" @click="setMode('list')"><List :size="18" /></button>
         </div>
       </div>
       <div class="filter-tags">
@@ -149,12 +169,13 @@ useMeta({
       >
         <button class="button button--outline button--small" @click="clearFilters">{{ locale.t('clearFilters') }}</button>
       </EmptyState>
-      <div v-else class="projects-grid" :class="{ 'projects-grid--list': mode === 'list' }">
+      <div v-else class="projects-grid" :class="{ 'projects-grid--list': mode === 'list', 'is-morphing': morphing }">
         <ProjectCard
-          v-for="project in state.data.value.items"
+          v-for="(project, index) in state.data.value.items"
           :key="project.uuid"
           :project="project"
           :compact="mode === 'list'"
+          :style="{ '--vt': `project-card-${index}` }"
         />
       </div>
     </div>

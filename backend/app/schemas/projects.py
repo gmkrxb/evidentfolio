@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 
 class LinkInput(BaseModel):
+    translations: dict[str, dict] = Field(default_factory=dict)
     label: str = Field(min_length=1, max_length=100)
     url: HttpUrl
     link_type: str = "other"
