@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="README.md">简体中文</a> ·
-  Live demo ·
+  <a href="https://life.gumingke.cloud">Live demo ·</a>
   <a href="docs/DEPLOYMENT.en.md">Deployment</a> ·
   <a href="CONTRIBUTING.en.md">Contributing</a>
 </p>
