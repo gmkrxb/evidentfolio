@@ -52,11 +52,11 @@ EvidentFolio 围绕这条阅读路径构建，将高质量公开展示、真实�
 
 ## 页面预览
 
-| 公开案例研究 | 项目内容管理 |
-| --- | --- |
-| ![项目案例](docs/images/project-detail.png) | ![项目编辑器](docs/images/admin-editor.png) |
+以下为维护者本地页面截图，展示浅色首页、深色智能体交互与移动端图版；首次部署仍为空白系统。
 
-开源版本首次启动为空白系统；下列网站仅作为维护者自己的成品演示：**demo**。
+| 深色交互场景 | 移动端图版 |
+| --- | --- |
+| ![深色智能体交互](docs/images/home-agents-dark.png) | <img src="docs/images/home-mobile.png" alt="移动端图版" width="280" /> |
 
 ## 技术栈
 

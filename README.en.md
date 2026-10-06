@@ -54,11 +54,11 @@ EvidentFolio is a self-hosted portfolio system built around that reading flow. I
 
 ## Screens
 
-| Public case study | Content management |
-| --- | --- |
-| ![Project case study](docs/images/project-detail.png) | ![Admin project editor](docs/images/admin-editor.png) |
+Local screenshots of the maintainer's portfolio show the light home page, dark interactive scene, and mobile layouts. A fresh installation still starts empty.
 
-The public demo contains the maintainer's own portfolio data; the open-source installation starts empty: **demo**.
+| Dark interactive scene | Mobile layout |
+| --- | --- |
+| ![Dark agent scene](docs/images/home-agents-dark.png) | <img src="docs/images/home-mobile.png" alt="Mobile layout" width="280" /> |
 
 ## Tech stack
 
